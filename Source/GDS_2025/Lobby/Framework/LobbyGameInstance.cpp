@@ -14,6 +14,10 @@ void ULobbyGameInstance::Init()
 	{
 		DeviceRegistry->Refresh();
 	}
+	if (DeviceRegistry)
+	{
+		DeviceRegistry->OnDevicesChangedNative.AddUObject(this, &ULobbyGameInstance::HandleDevicesChanged);
+	}
 
 	// Presets: feed dev packs into subsystem
 	if (UPresetLibrarySubsystem* PresetLib = GetSubsystem<UPresetLibrarySubsystem>())
@@ -179,4 +183,64 @@ void ULobbyGameInstance::CyclePreset(const int32 SlotIndex, const int32 Delta)
 
 	Slots[SlotIndex].SelectedPresetId = Ids[NextIndex];
 	BroadcastSlotChanged(SlotIndex);
+}
+
+void ULobbyGameInstance::CycleSlotControl(const int32 SlotIndex, const int32 Delta)
+{
+	if (!IsValidSlotIndex(SlotIndex) || !DeviceRegistry)
+	{
+		return;
+	}
+
+	TArray<FLobbyControlAssignment> Options;
+	DeviceRegistry->BuildAssignableOptions(Options);
+
+	if (Options.Num() == 0)
+	{
+		return;
+	}
+
+	const FLobbyControlAssignment Current = Slots[SlotIndex].Control;
+
+	int32 CurrentIndex = Options.IndexOfByPredicate([&](const FLobbyControlAssignment& A)
+	{
+		return A.Source == Current.Source && A.DeviceId == Current.DeviceId;
+	});
+
+	if (CurrentIndex == INDEX_NONE)
+	{
+		CurrentIndex = 0;
+	}
+
+	int32 NextIndex = (CurrentIndex + Delta) % Options.Num();
+	if (NextIndex < 0) NextIndex += Options.Num();
+
+	SetSlotControl(SlotIndex, Options[NextIndex]);
+}
+
+void ULobbyGameInstance::HandleDevicesChanged()
+{
+	if (!DeviceRegistry)
+	{
+		return;
+	}
+
+	for (int32 i = 0; i < Slots.Num(); ++i)
+	{
+		if (!DeviceRegistry->IsAssignmentValid(Slots[i].Control))
+		{
+			TArray<FLobbyControlAssignment> Options;
+			DeviceRegistry->BuildAssignableOptions(Options);
+
+			const FLobbyControlAssignment Fallback = (Options.Num() > 0)
+				? Options[0]
+				: FLobbyControlAssignment::None();
+
+			SetSlotControl(i, Fallback);
+		}
+		else
+		{
+			BroadcastSlotChanged(i);
+		}
+	}
 }

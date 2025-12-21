@@ -5,46 +5,71 @@
 #include "GDS_2025/Lobby/Data/LobbyTypes.h"
 #include "LobbyDeviceRegistry.generated.h"
 
-UCLASS(BlueprintType)
+DECLARE_MULTICAST_DELEGATE(FOnLobbyDevicesChangedNative);
+
+UCLASS()
 class ULobbyDeviceRegistry : public UObject
 {
 	GENERATED_BODY()
 
 public:
-	// How many gamepad indices we "consider" available for selection.
-	// Later you can replace this with actual connected-device detection.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lobby")
-	int32 MaxGamepadsToOffer = 4;
 
-	// Rebuild internal list (stub for now, but keeps API clean)
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Devices")
+	int32 MaxSupportedGamepads = 4;
+
+	FOnLobbyDevicesChangedNative OnDevicesChangedNative;
+
+	// Rebuilds connected device list (best-effort) and broadcasts if changed.
 	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
 	void Refresh();
 
-	// Returns options user can choose for controlling a slot.
-	// Uses internal reservations to filter out already taken gamepads/keyboard.
+	// Builds hidden list of available assignments right now.
+	// Stable order: None, Keyboard (if free), Gamepads (free), AI
 	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
-	TArray<FLobbyControlOption> GetAvailableOptions(int32 SlotIndex) const;
+	void BuildAssignableOptions(TArray<FLobbyControlAssignment>& OutOptions) const;
 
-	// Reserve a device for a slot (GameInstance should call this after applying assignment)
+	// Checks if an assignment is still valid (device still present / keyboard available).
+	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
+	bool IsAssignmentValid(const FLobbyControlAssignment& A) const;
+
+	// Reserves a physical device for a slot (used by GameInstance SetSlotControl).
+	// For non-physical assignments (None/AI/Matchmaking): no reservation required, returns true.
 	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
 	bool ReserveDeviceForSlot(const FLobbyDeviceId& DeviceId, int32 SlotIndex);
 
-	// Release any device reserved by this slot
+	// Releases any reservation held by this slot.
 	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
 	void ReleaseSlot(int32 SlotIndex);
 
-	// Query
+	// Display helper for ALobbySlotActor ChangeText.
 	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
-	bool IsDeviceReserved(const FLobbyDeviceId& DeviceId) const;
+	FText ToDisplayText(const FLobbyControlAssignment& A) const;
 
 	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
-	bool IsDeviceReservedByOtherSlot(const FLobbyDeviceId& DeviceId, int32 SlotIndex) const;
+	bool IsKeyboardAvailable() const { return bKeyboardAvailable; }
+
+	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
+	TArray<int32> GetConnectedGamepadIndices() const { return ConnectedGamepadIndices; }
 
 private:
-	// Device -> SlotIndex
+	// Connected gamepad indices (0,1,2,...) as seen by the platform enumerator / mapper.
 	UPROPERTY()
-	TMap<FLobbyDeviceId, int32> ReservedDevices;
+	TArray<int32> ConnectedGamepadIndices;
+
+	// Device reservations: DeviceId -> SlotIndex
+	UPROPERTY()
+	TMap<FLobbyDeviceId, int32> ReservedByDeviceId;
+
+	// SlotIndex -> DeviceId
+	UPROPERTY()
+	TMap<int32, FLobbyDeviceId> ReservedBySlot;
+
+	UPROPERTY()
+	bool bKeyboardAvailable = true;
 
 private:
-	static bool IsReservableDeviceType(ELobbyDeviceType Type);
+	void QueryConnectedGamepads(TArray<int32>& OutGamepadIndices) const;
+
+	bool IsGamepadConnectedIndex(int32 GamepadIndex) const;
+	int32 GetGamepadDisplayNumber(int32 GamepadIndex) const;
 };

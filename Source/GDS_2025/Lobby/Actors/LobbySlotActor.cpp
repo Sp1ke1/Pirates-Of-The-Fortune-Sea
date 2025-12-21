@@ -5,6 +5,8 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
+#include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 
 ALobbySlotActor::ALobbySlotActor()
 {
@@ -46,31 +48,16 @@ ALobbySlotActor::ALobbySlotActor()
 
 void ALobbySlotActor::ApplyData(const FLobbySlotData& Data)
 {
-	FString Label = TEXT("CHANGE");
-
-	switch (Data.Control.Source)
+	if (UGameInstance* GI = GetGameInstance())
 	{
-	case ELobbyControlSource::None:
-		Label = TEXT("ADD");
-		break;
-	case ELobbyControlSource::Keyboard:
-		Label = TEXT("KEYBOARD");
-		break;
-	case ELobbyControlSource::Gamepad:
-		Label = TEXT("GAMEPAD");
-		break;
-	case ELobbyControlSource::AI:
-		Label = TEXT("AI");
-		break;
-	case ELobbyControlSource::Matchmaking:
-		Label = TEXT("ONLINE");
-		break;
-	default:
-		break;
+		if (ULobbyGameInstance* LobbyGI = Cast<ULobbyGameInstance>(GI))
+		{
+			if (ULobbyDeviceRegistry* Reg = LobbyGI->GetDeviceRegistry())
+			{
+				ChangeText->SetText(Reg->ToDisplayText(Data.Control));
+			}
+		}
 	}
-
-	ChangeText->SetText(FText::FromString(Label));
-	
 
 	// Apply preset mesh
 	if (CharacterMesh)

@@ -86,6 +86,9 @@ void ALobbyPlayerController::SetupInputComponent()
 
 	if (IA_SkinPrev)   EIC->BindAction(IA_SkinPrev, ETriggerEvent::Started, this, &ALobbyPlayerController::OnSkinPrev);
 	if (IA_SkinNext)   EIC->BindAction(IA_SkinNext, ETriggerEvent::Started, this, &ALobbyPlayerController::OnSkinNext);
+
+	if (IA_ControlUp)   EIC->BindAction(IA_ControlUp,   ETriggerEvent::Started, this, &ALobbyPlayerController::OnControlUp);
+	if (IA_ControlDown) EIC->BindAction(IA_ControlDown, ETriggerEvent::Started, this, &ALobbyPlayerController::OnControlDown);
 }
 
 int32 ALobbyPlayerController::WrapSlotIndex(const int32 Index) const
@@ -101,6 +104,18 @@ int32 ALobbyPlayerController::WrapSlotIndex(const int32 Index) const
 void ALobbyPlayerController::ClampAndApplyFocus()
 {
 	FocusedSlotIndex = WrapSlotIndex(FocusedSlotIndex);
+}
+
+void ALobbyPlayerController::OnControlUp(const FInputActionValue&)
+{
+	CacheLobbyRefs();
+	if (LobbyGI) LobbyGI->CycleSlotControl(FocusedSlotIndex, -1);
+}
+
+void ALobbyPlayerController::OnControlDown(const FInputActionValue&)
+{
+	CacheLobbyRefs();
+	if (LobbyGI) LobbyGI->CycleSlotControl(FocusedSlotIndex, +1);
 }
 
 void ALobbyPlayerController::EnsureFocusLamp()

@@ -86,6 +86,9 @@ protected:
 	void OnSkinPrev(const FInputActionValue& Value);
 	void OnSkinNext(const FInputActionValue& Value);
 
+	void OnControlUp(const FInputActionValue& Value);
+	void OnControlDown(const FInputActionValue& Value);
+
 private:
 	UPROPERTY()
 	TObjectPtr<ULobbyGameInstance> LobbyGI;
@@ -104,6 +107,12 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ALobbySlotActor> FocusedSlotActor = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_ControlUp = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_ControlDown = nullptr;
 
 private:
 	void CacheLobbyRefs();

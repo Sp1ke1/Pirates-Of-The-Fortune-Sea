@@ -1,92 +1,246 @@
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 
+#include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
+
 void ULobbyDeviceRegistry::Refresh()
 {
-	// Stub:
-	// Later you can detect actual connected controllers, platform user mapping, etc.
-	// For now we just keep MaxGamepadsToOffer and reservations.
+	TArray<int32> NewGamepads;
+	QueryConnectedGamepads(NewGamepads);
+
+	NewGamepads.Sort();
+
+	const bool bChanged = (NewGamepads != ConnectedGamepadIndices);
+	ConnectedGamepadIndices = MoveTemp(NewGamepads);
+
+	// Drop reservations for devices that no longer exist
+	{
+		TArray<FLobbyDeviceId> ToRemove;
+
+		for (const TPair<FLobbyDeviceId, int32>& Pair : ReservedByDeviceId)
+		{
+			const FLobbyDeviceId& DevId = Pair.Key;
+
+			bool bStillValid = true;
+			switch (DevId.Type)
+			{
+			case ELobbyDeviceType::Keyboard:
+				bStillValid = bKeyboardAvailable;
+				break;
+
+			case ELobbyDeviceType::Gamepad:
+				bStillValid = IsGamepadConnectedIndex(DevId.Index);
+				break;
+
+			case ELobbyDeviceType::None:
+			default:
+				bStillValid = true;
+				break;
+			}
+
+			if (!bStillValid)
+			{
+				ToRemove.Add(DevId);
+			}
+		}
+
+		for (const FLobbyDeviceId& DevId : ToRemove)
+		{
+			if (const int32* SlotPtr = ReservedByDeviceId.Find(DevId))
+			{
+				ReservedBySlot.Remove(*SlotPtr);
+			}
+			ReservedByDeviceId.Remove(DevId);
+		}
+	}
+
+	if (bChanged)
+	{
+		OnDevicesChangedNative.Broadcast();
+	}
 }
 
-bool ULobbyDeviceRegistry::IsReservableDeviceType(const ELobbyDeviceType Type)
+void ULobbyDeviceRegistry::QueryConnectedGamepads(TArray<int32>& OutGamepadIndices) const
 {
-	return Type == ELobbyDeviceType::Keyboard || Type == ELobbyDeviceType::Gamepad;
+	OutGamepadIndices.Reset();
+	for (int32 i = 0; i < MaxSupportedGamepads; ++i)
+	{
+		OutGamepadIndices.Add(i);
+	}
 }
 
-bool ULobbyDeviceRegistry::IsDeviceReserved(const FLobbyDeviceId& DeviceId) const
+bool ULobbyDeviceRegistry::IsGamepadConnectedIndex(const int32 GamepadIndex) const
 {
-	return ReservedDevices.Contains(DeviceId);
+	return ConnectedGamepadIndices.Contains(GamepadIndex);
 }
 
-bool ULobbyDeviceRegistry::IsDeviceReservedByOtherSlot(const FLobbyDeviceId& DeviceId, const int32 SlotIndex) const
+bool ULobbyDeviceRegistry::IsAssignmentValid(const FLobbyControlAssignment& A) const
 {
-	const int32* ExistingSlot = ReservedDevices.Find(DeviceId);
-	return ExistingSlot && (*ExistingSlot != SlotIndex);
+	switch (A.Source)
+	{
+	case ELobbyControlSource::None:
+		return true;
+
+	case ELobbyControlSource::AI:
+		return true;
+
+	case ELobbyControlSource::Keyboard:
+		return bKeyboardAvailable;
+
+	case ELobbyControlSource::Gamepad:
+		return IsGamepadConnectedIndex(A.DeviceId.Index);
+
+	case ELobbyControlSource::Matchmaking:
+		// Matchmaking is not a physical device. Keep valid here.
+		return true;
+
+	default:
+		return false;
+	}
 }
 
 bool ULobbyDeviceRegistry::ReserveDeviceForSlot(const FLobbyDeviceId& DeviceId, const int32 SlotIndex)
 {
-	if (!IsReservableDeviceType(DeviceId.Type))
-	{
-		return true; // Nothing to reserve (None)
-	}
-
-	if (IsDeviceReservedByOtherSlot(DeviceId, SlotIndex))
+	if (SlotIndex < 0)
 	{
 		return false;
 	}
 
-	ReservedDevices.Add(DeviceId, SlotIndex);
-	return true;
+	// None means no physical reservation required.
+	if (DeviceId.Type == ELobbyDeviceType::None)
+	{
+		return true;
+	}
+
+	// Release any current reservation for this slot.
+	ReleaseSlot(SlotIndex);
+
+	// Keyboard: single-owner reservation (common for local co-op).
+	if (DeviceId.Type == ELobbyDeviceType::Keyboard)
+	{
+		if (!bKeyboardAvailable)
+		{
+			return false;
+		}
+
+		if (const int32* ExistingSlot = ReservedByDeviceId.Find(DeviceId))
+		{
+			return (*ExistingSlot == SlotIndex);
+		}
+
+		ReservedByDeviceId.Add(DeviceId, SlotIndex);
+		ReservedBySlot.Add(SlotIndex, DeviceId);
+		return true;
+	}
+
+	// Gamepad: must be connected.
+	if (DeviceId.Type == ELobbyDeviceType::Gamepad)
+	{
+		if (!IsGamepadConnectedIndex(DeviceId.Index))
+		{
+			return false;
+		}
+
+		if (const int32* ExistingSlot = ReservedByDeviceId.Find(DeviceId))
+		{
+			return (*ExistingSlot == SlotIndex);
+		}
+
+		ReservedByDeviceId.Add(DeviceId, SlotIndex);
+		ReservedBySlot.Add(SlotIndex, DeviceId);
+		return true;
+	}
+
+	return false;
 }
 
 void ULobbyDeviceRegistry::ReleaseSlot(const int32 SlotIndex)
 {
-	// Remove all reservations belonging to this slot
-	TArray<FLobbyDeviceId> ToRemove;
-	ToRemove.Reserve(ReservedDevices.Num());
-
-	for (const auto& Pair : ReservedDevices)
+	if (const FLobbyDeviceId* DevIdPtr = ReservedBySlot.Find(SlotIndex))
 	{
-		if (Pair.Value == SlotIndex)
-		{
-			ToRemove.Add(Pair.Key);
-		}
-	}
-
-	for (const FLobbyDeviceId& Id : ToRemove)
-	{
-		ReservedDevices.Remove(Id);
+		const FLobbyDeviceId DevId = *DevIdPtr;
+		ReservedBySlot.Remove(SlotIndex);
+		ReservedByDeviceId.Remove(DevId);
 	}
 }
 
-TArray<FLobbyControlOption> ULobbyDeviceRegistry::GetAvailableOptions(const int32 SlotIndex) const
+void ULobbyDeviceRegistry::BuildAssignableOptions(TArray<FLobbyControlAssignment>& OutOptions) const
 {
-	TArray<FLobbyControlOption> Options;
+	OutOptions.Reset();
 
-	// Always allow these
-	Options.Add(FLobbyControlOption(FText::FromString(TEXT("None")), FLobbyControlAssignment::None()));
-	Options.Add(FLobbyControlOption(FText::FromString(TEXT("AI")), FLobbyControlAssignment::AI()));
-	Options.Add(FLobbyControlOption(FText::FromString(TEXT("Matchmaking")), FLobbyControlAssignment::Matchmaking()));
+	// 1) None is always available.
+	OutOptions.Add(FLobbyControlAssignment::None());
 
-	// Keyboard (single)
+	// 2) Keyboard (if available and not reserved).
+	if (bKeyboardAvailable)
 	{
 		const FLobbyDeviceId KeyboardId = FLobbyDeviceId::Keyboard();
-		if (!IsDeviceReservedByOtherSlot(KeyboardId, SlotIndex))
+		if (!ReservedByDeviceId.Contains(KeyboardId))
 		{
-			Options.Add(FLobbyControlOption(FText::FromString(TEXT("Keyboard")), FLobbyControlAssignment::Keyboard()));
+			FLobbyControlAssignment A;
+			A.Source = ELobbyControlSource::Keyboard;
+			A.DeviceId = KeyboardId;
+			OutOptions.Add(A);
 		}
 	}
 
-	// Gamepads (0..MaxGamepadsToOffer-1)
-	for (int32 Pad = 0; Pad < MaxGamepadsToOffer; ++Pad)
+	// 3) Free connected gamepads.
+	for (const int32 GpIndex : ConnectedGamepadIndices)
 	{
-		const FLobbyDeviceId PadId = FLobbyDeviceId::Gamepad(Pad);
-		if (!IsDeviceReservedByOtherSlot(PadId, SlotIndex))
+		const FLobbyDeviceId GpId = FLobbyDeviceId::Gamepad(GpIndex);
+		if (ReservedByDeviceId.Contains(GpId))
 		{
-			const FText Label = FText::FromString(FString::Printf(TEXT("Gamepad %d"), Pad + 1));
-			Options.Add(FLobbyControlOption(Label, FLobbyControlAssignment::Gamepad(Pad)));
+			continue;
 		}
+
+		FLobbyControlAssignment A;
+		A.Source = ELobbyControlSource::Gamepad;
+		A.DeviceId = GpId;
+		OutOptions.Add(A);
 	}
 
-	return Options;
+	// 4) AI is always available.
+	{
+		FLobbyControlAssignment A;
+		A.Source = ELobbyControlSource::AI;
+		A.DeviceId = FLobbyDeviceId::None();
+		OutOptions.Add(A);
+	}
+}
+
+int32 ULobbyDeviceRegistry::GetGamepadDisplayNumber(const int32 GamepadIndex) const
+{
+	// Stable display numbering based on sorted connected indices.
+	const int32 SortedIndex = ConnectedGamepadIndices.IndexOfByKey(GamepadIndex);
+	return (SortedIndex == INDEX_NONE) ? 0 : (SortedIndex + 1);
+}
+
+FText ULobbyDeviceRegistry::ToDisplayText(const FLobbyControlAssignment& A) const
+{
+	switch (A.Source)
+	{
+	case ELobbyControlSource::None:
+		return FText::FromString(TEXT("NONE"));
+
+	case ELobbyControlSource::Keyboard:
+		return FText::FromString(TEXT("KEYBOARD"));
+
+	case ELobbyControlSource::AI:
+		return FText::FromString(TEXT("BOT"));
+
+	case ELobbyControlSource::Gamepad:
+	{
+		const int32 Num = GetGamepadDisplayNumber(A.DeviceId.Index);
+		if (Num > 0)
+		{
+			return FText::FromString(FString::Printf(TEXT("GAMEPAD %d"), Num));
+		}
+		return FText::FromString(TEXT("GAMEPAD"));
+	}
+
+	case ELobbyControlSource::Matchmaking:
+		return FText::FromString(TEXT("ONLINE"));
+
+	default:
+		return FText::FromString(TEXT("UNKNOWN"));
+	}
 }

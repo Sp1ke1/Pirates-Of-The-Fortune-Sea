@@ -44,6 +44,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
 	void SetSelectedPresetId(int32 SlotIndex, const FGuid& PresetId);
 
+	UFUNCTION(BlueprintCallable, Category="Lobby|Control")
+	void CycleSlotControl(int32 SlotIndex, int32 Delta);
+
+
 protected:
 	// Developer default preset packs (DataAssets) -> fed into PresetLibrarySubsystem on Init.
 	UPROPERTY(EditDefaultsOnly, Category="Lobby|Presets")
@@ -60,6 +64,9 @@ private:
 	bool IsValidSlotIndex(int32 SlotIndex) const;
 	void BroadcastSlotChanged(int32 SlotIndex);
 	void InitializeDefaultSlots();
+	
+	void HandleDevicesChanged();
+	FLobbyControlAssignment PickFallbackAssignment() const;
 
 	// Ensures slot has a valid preset id (or assigns first available, or invalid guid if none)
 	void EnsureValidPresetForSlot(int32 SlotIndex);

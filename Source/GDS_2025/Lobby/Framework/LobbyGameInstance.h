@@ -3,12 +3,11 @@
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
 #include "GDS_2025/Lobby/Data/LobbySlotData.h"
-
 #include "LobbyGameInstance.generated.h"
 
 class ULobbyDeviceRegistry;
+class UPresetPackDataAsset;
 
-// SlotIndex, NewSlotData
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLobbySlotChangedNative, int32, const FLobbySlotData&);
 
 UCLASS()
@@ -19,10 +18,9 @@ class ULobbyGameInstance : public UGameInstance
 public:
 	static constexpr int32 NumLobbySlots = 4;
 
-	// Native event for C++ listeners (GameMode, etc.)
+	// SlotIndex, NewSlotData
 	FOnLobbySlotChangedNative OnLobbySlotChangedNative;
 
-	// UObject lifecycle
 	virtual void Init() override;
 
 	// Data access
@@ -35,15 +33,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	ULobbyDeviceRegistry* GetDeviceRegistry() const { return DeviceRegistry; }
 
-	// Mutations (these broadcast changes)
+	// Mutations (broadcast changes)
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	bool SetSlotControl(int32 SlotIndex, const FLobbyControlAssignment& NewControl);
 
-	UFUNCTION(BlueprintCallable, Category="Lobby")
-	void CycleSkin(int32 SlotIndex, int32 Delta);
+	// RB/LB should call this (cycles through PresetLibrary's available preset IDs)
+	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
+	void CyclePreset(int32 SlotIndex, int32 Delta);
 
-	UFUNCTION(BlueprintCallable, Category="Lobby")
-	void SetSkinIndex(int32 SlotIndex, int32 NewSkinIndex);
+	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
+	void SetSelectedPresetId(int32 SlotIndex, const FGuid& PresetId);
+
+protected:
+	// Developer default preset packs (DataAssets) -> fed into PresetLibrarySubsystem on Init.
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Presets")
+	TArray<TObjectPtr<UPresetPackDataAsset>> DefaultDevPresetPacks;
 
 private:
 	UPROPERTY()
@@ -56,4 +60,7 @@ private:
 	bool IsValidSlotIndex(int32 SlotIndex) const;
 	void BroadcastSlotChanged(int32 SlotIndex);
 	void InitializeDefaultSlots();
+
+	// Ensures slot has a valid preset id (or assigns first available, or invalid guid if none)
+	void EnsureValidPresetForSlot(int32 SlotIndex);
 };

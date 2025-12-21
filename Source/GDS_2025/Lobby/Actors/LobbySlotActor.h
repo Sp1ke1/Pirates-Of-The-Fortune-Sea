@@ -3,13 +3,14 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GDS_2025/Lobby/Data/LobbySlotData.h"
-
 #include "LobbySlotActor.generated.h"
 
 class USceneComponent;
 class USkeletalMeshComponent;
 class UTextRenderComponent;
 class UStaticMeshComponent;
+class USkeletalMesh;
+
 
 UCLASS()
 class ALobbySlotActor : public AActor
@@ -19,48 +20,65 @@ class ALobbySlotActor : public AActor
 public:
 	ALobbySlotActor();
 
-	// Which slot this actor represents (0..3)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Lobby")
 	int32 SlotIndex = 0;
 
-	// Root
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<USceneComponent> Root = nullptr;
 
-	// Where focus lamp should attach / move to
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<USceneComponent> FocusAnchor = nullptr;
 
-	// Character mesh (visual)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<USkeletalMeshComponent> CharacterMesh = nullptr;
 
-	// "Change" text button in world
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<UTextRenderComponent> ChangeText = nullptr;
 
-	// Triangles (optional visuals, can be clicked later)
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<UStaticMeshComponent> LeftTriangle = nullptr;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<UStaticMeshComponent> RightTriangle = nullptr;
 
-	// Apply persistent slot data to the visuals
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	void ApplyData(const FLobbySlotData& Data);
 
-	// Hover feedback from mouse focus (pure visual)
-	UFUNCTION(BlueprintCallable, Category="Lobby")
+	// Mouse hover feedback (visual)
+	UFUNCTION(BlueprintCallable, Category="Lobby|Focus")
 	void SetHovered(bool bHovered);
 
-	// For convenience
+	// Active focus (gamepad/keyboard/etc). Multiple controllers may focus the same slot.
+	UFUNCTION(BlueprintCallable, Category="Lobby|Focus")
+	void AddActiveFocus();
+
+	UFUNCTION(BlueprintCallable, Category="Lobby|Focus")
+	void RemoveActiveFocus();
+
+	UFUNCTION(BlueprintCallable, Category="Lobby|Focus")
+	bool HasActiveFocus() const { return ActiveFocusCount > 0; }
+
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	USceneComponent* GetFocusAnchor() const { return FocusAnchor; }
+
+	// Presets (for now just skeletal meshes). Set these in BP_LobbySlotActor.
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby|Presets")
+	TArray<TObjectPtr<USkeletalMesh>> PresetMeshes;
 
 private:
 	UPROPERTY()
 	bool bIsHovered = false;
 
-	void UpdateHoverVisuals();
+	UPROPERTY()
+	int32 ActiveFocusCount = 0;
+
+	// Tuning
+	UPROPERTY(EditAnywhere, Category="Lobby|Focus")
+	float HoverScale = 1.05f;
+
+	UPROPERTY(EditAnywhere, Category="Lobby|Focus")
+	float ActiveScale = 1.08f;
+
+
+	void UpdateFocusVisuals();
 };

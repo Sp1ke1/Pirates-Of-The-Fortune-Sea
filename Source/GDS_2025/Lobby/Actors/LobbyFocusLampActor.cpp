@@ -35,6 +35,7 @@ void ALobbyFocusLampActor::AttachToAnchor(USceneComponent* Anchor)
 	AttachToComponent(Anchor, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	SetActorRelativeLocation(FVector::ZeroVector);
 	SetActorRelativeRotation(FRotator::ZeroRotator);
+	SetActorScale3D(FVector{ 1.f, 1.f, 1.f });
 }
 
 void ALobbyFocusLampActor::SetColor(const FLinearColor& Color)

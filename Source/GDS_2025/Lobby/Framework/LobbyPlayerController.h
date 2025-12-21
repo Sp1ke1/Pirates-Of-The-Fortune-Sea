@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "InputActionValue.h"
 #include "LobbyPlayerController.generated.h"
 
 class ULobbyGameInstance;
@@ -9,7 +10,9 @@ class ALobbyGameMode;
 class ALobbyFocusLampActor;
 class ALobbySlotActor;
 
-// Optional: represent "who owns this input focus"
+class UInputMappingContext;
+class UInputAction;
+
 UENUM(BlueprintType)
 enum class ELobbyInputOwner : uint8
 {
@@ -31,35 +34,57 @@ public:
 	virtual void SetupInputComponent() override;
 	virtual void PlayerTick(float DeltaTime) override;
 
-	// Focus
 	UFUNCTION(BlueprintCallable, Category="Lobby|Focus")
 	int32 GetFocusedSlotIndex() const { return FocusedSlotIndex; }
 
 	UFUNCTION(BlueprintCallable, Category="Lobby|Focus")
 	void SetFocusedSlotIndex(int32 NewIndex);
 
-	// Input owner (you can set this when spawning local players)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lobby")
 	ELobbyInputOwner InputOwner = ELobbyInputOwner::Unknown;
 
-	// Lamp class to spawn for this controller (set in BP or defaults)
+	// ---- Enhanced Input Assets ----
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputMappingContext> LobbyMappingContext = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	int32 LobbyMappingPriority = 0;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_FocusLeft = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_FocusRight = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_Confirm = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_Cancel = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_SkinPrev = nullptr;
+
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_SkinNext = nullptr;
+
+	// ---- Focus lamp ----
 	UPROPERTY(EditDefaultsOnly, Category="Lobby|Focus")
 	TSubclassOf<ALobbyFocusLampActor> FocusLampClass;
 
-	// Lamp color (each controller can have its own)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Lobby|Focus")
 	FLinearColor FocusLampColor = FLinearColor::White;
 
 protected:
-	// ---- Input handlers (legacy input system) ----
-	void Input_FocusLeft();
-	void Input_FocusRight();
+	// Enhanced input handlers
+	void OnFocusLeft(const FInputActionValue& Value);
+	void OnFocusRight(const FInputActionValue& Value);
 
-	void Input_Confirm(); // A
-	void Input_Cancel();  // B (stub)
+	void OnConfirm(const FInputActionValue& Value);
+	void OnCancel(const FInputActionValue& Value);
 
-	void Input_SkinPrev(); // LB
-	void Input_SkinNext(); // RB
+	void OnSkinPrev(const FInputActionValue& Value);
+	void OnSkinNext(const FInputActionValue& Value);
 
 private:
 	UPROPERTY()
@@ -77,6 +102,9 @@ private:
 	UPROPERTY()
 	TObjectPtr<ALobbySlotActor> HoveredSlot = nullptr;
 
+	UPROPERTY()
+	TObjectPtr<ALobbySlotActor> FocusedSlotActor = nullptr;
+
 private:
 	void CacheLobbyRefs();
 
@@ -87,4 +115,6 @@ private:
 	int32 WrapSlotIndex(int32 Index) const;
 
 	void UpdateMouseHoverFocus();
+
+	void AddLobbyMappingContext();
 };

@@ -1,5 +1,6 @@
 #include "GDS_2025/Lobby/Actors/LobbySlotActor.h"
-
+#include "GDS_2025/Lobby/Presets/PresetLibrarySubsystem.h"
+#include "Engine/GameInstance.h"
 #include "Components/SceneComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -14,7 +15,7 @@ ALobbySlotActor::ALobbySlotActor()
 
 	FocusAnchor = CreateDefaultSubobject<USceneComponent>(TEXT("FocusAnchor"));
 	FocusAnchor->SetupAttachment(Root);
-	FocusAnchor->SetRelativeLocation(FVector(0.f, 0.f, 220.f)); // above head, tweak
+	FocusAnchor->SetRelativeLocation(FVector(0.f, 0.f, 220.f));
 
 	CharacterMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterMesh"));
 	CharacterMesh->SetupAttachment(Root);
@@ -30,30 +31,21 @@ ALobbySlotActor::ALobbySlotActor()
 	LeftTriangle->SetupAttachment(Root);
 	LeftTriangle->SetRelativeLocation(FVector(-35.f, 80.f, 120.f));
 	LeftTriangle->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	LeftTriangle->SetGenerateOverlapEvents(false);
 
 	RightTriangle = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RightTriangle"));
 	RightTriangle->SetupAttachment(Root);
 	RightTriangle->SetRelativeLocation(FVector(35.f, 80.f, 120.f));
 	RightTriangle->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	RightTriangle->SetGenerateOverlapEvents(false);
 
-	// Make mouse hover traces possible by default
+	// Allow traces for hover
 	CharacterMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CharacterMesh->SetCollisionResponseToAllChannels(ECR_Block);
-	ChangeText->SetCollisionEnabled(ECollisionEnabled::NoCollision); // TextRender isn't great for hits; up to you
 
-	UpdateHoverVisuals();
+	UpdateFocusVisuals();
 }
 
 void ALobbySlotActor::ApplyData(const FLobbySlotData& Data)
 {
-	// Minimal stub: you will later apply:
-	// - skin index -> mesh/material override / cosmetic asset
-	// - control source -> show "EMPTY" / "AI" / "P1" / "MM" etc
-	// - player color -> accent material, etc
-
-	// Example: change the "CHANGE" label based on occupancy
 	FString Label = TEXT("CHANGE");
 
 	switch (Data.Control.Source)
@@ -78,9 +70,19 @@ void ALobbySlotActor::ApplyData(const FLobbySlotData& Data)
 	}
 
 	ChangeText->SetText(FText::FromString(Label));
+	
 
-	// You can also store Data.SkinIndex somewhere if needed.
-	// For now we keep it visual-only.
+	// Apply preset mesh
+	if (CharacterMesh)
+	{
+		if (UGameInstance* GI = GetGameInstance())
+		{
+			if (UPresetLibrarySubsystem* Lib = GI->GetSubsystem<UPresetLibrarySubsystem>())
+			{
+				Lib->ApplyPresetToMeshById(Data.SelectedPresetId, CharacterMesh);
+			}
+		}
+	}
 }
 
 void ALobbySlotActor::SetHovered(const bool bHovered)
@@ -91,12 +93,34 @@ void ALobbySlotActor::SetHovered(const bool bHovered)
 	}
 
 	bIsHovered = bHovered;
-	UpdateHoverVisuals();
+	UpdateFocusVisuals();
 }
 
-void ALobbySlotActor::UpdateHoverVisuals()
+void ALobbySlotActor::AddActiveFocus()
 {
-	// Very simple: scale up slightly when hovered
-	const float Scale = bIsHovered ? 1.1f : 1.0f;
+	ActiveFocusCount = FMath::Max(0, ActiveFocusCount + 1);
+	UpdateFocusVisuals();
+}
+
+void ALobbySlotActor::RemoveActiveFocus()
+{
+	ActiveFocusCount = FMath::Max(0, ActiveFocusCount - 1);
+	UpdateFocusVisuals();
+}
+
+void ALobbySlotActor::UpdateFocusVisuals()
+{
+	const bool bActive = (ActiveFocusCount > 0);
+
+	float Scale = 1.0f;
+	if (bActive)
+	{
+		Scale *= ActiveScale;
+	}
+	if (bIsHovered)
+	{
+		Scale *= HoverScale;
+	}
+
 	SetActorScale3D(FVector(Scale));
 }

@@ -1,14 +1,26 @@
 #include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
+
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
+#include "GDS_2025/Lobby/Presets/PresetLibrarySubsystem.h"
+#include "GDS_2025/Lobby/Presets/PresetPackDataAsset.h"
 
 void ULobbyGameInstance::Init()
 {
 	Super::Init();
 
+	// Devices
 	DeviceRegistry = NewObject<ULobbyDeviceRegistry>(this, ULobbyDeviceRegistry::StaticClass());
 	if (DeviceRegistry)
 	{
 		DeviceRegistry->Refresh();
+	}
+
+	// Presets: feed dev packs into subsystem
+	if (UPresetLibrarySubsystem* PresetLib = GetSubsystem<UPresetLibrarySubsystem>())
+	{
+		PresetLib->SetDevPresetPacks(DefaultDevPresetPacks);
+		// Subsystem loads user presets in Initialize(), but you can force here if you want:
+		// PresetLib->LoadUserPresets();
 	}
 
 	InitializeDefaultSlots();
@@ -19,11 +31,25 @@ bool ULobbyGameInstance::IsValidSlotIndex(const int32 SlotIndex) const
 	return SlotIndex >= 0 && SlotIndex < Slots.Num();
 }
 
+const FLobbySlotData& ULobbyGameInstance::GetSlotData(const int32 SlotIndex) const
+{
+	static FLobbySlotData Dummy;
+	return IsValidSlotIndex(SlotIndex) ? Slots[SlotIndex] : Dummy;
+}
+
+void ULobbyGameInstance::BroadcastSlotChanged(const int32 SlotIndex)
+{
+	if (IsValidSlotIndex(SlotIndex))
+	{
+		OnLobbySlotChangedNative.Broadcast(SlotIndex, Slots[SlotIndex]);
+	}
+}
+
 void ULobbyGameInstance::InitializeDefaultSlots()
 {
 	Slots.SetNum(NumLobbySlots);
 
-	// Example colors, can be anything you want
+	// Example colors (tweak anytime)
 	const FLinearColor Colors[NumLobbySlots] =
 	{
 		FLinearColor(0.95f, 0.25f, 0.25f, 1.0f),
@@ -36,34 +62,44 @@ void ULobbyGameInstance::InitializeDefaultSlots()
 	{
 		Slots[i].SlotIndex = i;
 		Slots[i].Control = FLobbyControlAssignment::None();
-		Slots[i].SkinIndex = 0;
 		Slots[i].PlayerColor = Colors[i];
 		Slots[i].bReady = false;
+		Slots[i].SelectedPresetId = FGuid(); // will be fixed by EnsureValidPresetForSlot
 
+		EnsureValidPresetForSlot(i);
 		BroadcastSlotChanged(i);
 	}
 }
 
-const FLobbySlotData& ULobbyGameInstance::GetSlotData(const int32 SlotIndex) const
-{
-	static FLobbySlotData Dummy;
-
-	if (!IsValidSlotIndex(SlotIndex))
-	{
-		return Dummy;
-	}
-
-	return Slots[SlotIndex];
-}
-
-void ULobbyGameInstance::BroadcastSlotChanged(const int32 SlotIndex)
+void ULobbyGameInstance::EnsureValidPresetForSlot(const int32 SlotIndex)
 {
 	if (!IsValidSlotIndex(SlotIndex))
 	{
 		return;
 	}
 
-	OnLobbySlotChangedNative.Broadcast(SlotIndex, Slots[SlotIndex]);
+	UPresetLibrarySubsystem* PresetLib = GetSubsystem<UPresetLibrarySubsystem>();
+	if (!PresetLib)
+	{
+		Slots[SlotIndex].SelectedPresetId = FGuid();
+		return;
+	}
+
+	const TArray<FGuid> Ids = PresetLib->GetAllPresetIds();
+	if (Ids.Num() <= 0)
+	{
+		Slots[SlotIndex].SelectedPresetId = FGuid();
+		return;
+	}
+
+	// If current id is invalid or unknown, set first available
+	const FGuid Current = Slots[SlotIndex].SelectedPresetId;
+	const bool bHasCurrent = Current.IsValid() && (Ids.IndexOfByKey(Current) != INDEX_NONE);
+
+	if (!bHasCurrent)
+	{
+		Slots[SlotIndex].SelectedPresetId = Ids[0];
+	}
 }
 
 bool ULobbyGameInstance::SetSlotControl(const int32 SlotIndex, const FLobbyControlAssignment& NewControl)
@@ -76,12 +112,10 @@ bool ULobbyGameInstance::SetSlotControl(const int32 SlotIndex, const FLobbyContr
 	// Release old reservation (if any)
 	DeviceRegistry->ReleaseSlot(SlotIndex);
 
-	// Try reserve new one (if needed)
-	const FLobbyDeviceId NewDevice = NewControl.DeviceId;
-	const bool bReservedOk = DeviceRegistry->ReserveDeviceForSlot(NewDevice, SlotIndex);
+	// Reserve new one if needed
+	const bool bReservedOk = DeviceRegistry->ReserveDeviceForSlot(NewControl.DeviceId, SlotIndex);
 	if (!bReservedOk)
 	{
-		// Reservation failed -> keep slot empty (or you can restore previous state if you prefer)
 		Slots[SlotIndex].Control = FLobbyControlAssignment::None();
 		BroadcastSlotChanged(SlotIndex);
 		return false;
@@ -92,31 +126,57 @@ bool ULobbyGameInstance::SetSlotControl(const int32 SlotIndex, const FLobbyContr
 	return true;
 }
 
-void ULobbyGameInstance::CycleSkin(const int32 SlotIndex, const int32 Delta)
+void ULobbyGameInstance::SetSelectedPresetId(const int32 SlotIndex, const FGuid& PresetId)
 {
 	if (!IsValidSlotIndex(SlotIndex))
 	{
 		return;
 	}
 
-	// Simple wrap-around if you want; for now keep non-negative
-	int32 NewIndex = Slots[SlotIndex].SkinIndex + Delta;
-	if (NewIndex < 0)
-	{
-		NewIndex = 0;
-	}
+	Slots[SlotIndex].SelectedPresetId = PresetId;
 
-	Slots[SlotIndex].SkinIndex = NewIndex;
+	// Make sure it's valid; if not, snap to first available (or invalid if none)
+	EnsureValidPresetForSlot(SlotIndex);
+
 	BroadcastSlotChanged(SlotIndex);
 }
 
-void ULobbyGameInstance::SetSkinIndex(const int32 SlotIndex, const int32 NewSkinIndex)
+void ULobbyGameInstance::CyclePreset(const int32 SlotIndex, const int32 Delta)
 {
 	if (!IsValidSlotIndex(SlotIndex))
 	{
 		return;
 	}
 
-	Slots[SlotIndex].SkinIndex = FMath::Max(0, NewSkinIndex);
+	UPresetLibrarySubsystem* PresetLib = GetSubsystem<UPresetLibrarySubsystem>();
+	if (!PresetLib)
+	{
+		return;
+	}
+
+	const TArray<FGuid> Ids = PresetLib->GetAllPresetIds();
+	if (Ids.Num() <= 0)
+	{
+		return;
+	}
+
+	// Ensure current is valid before cycling
+	EnsureValidPresetForSlot(SlotIndex);
+
+	const FGuid Current = Slots[SlotIndex].SelectedPresetId;
+
+	int32 CurrentIndex = Ids.IndexOfByKey(Current);
+	if (CurrentIndex == INDEX_NONE)
+	{
+		CurrentIndex = 0;
+	}
+
+	int32 NextIndex = (CurrentIndex + Delta) % Ids.Num();
+	if (NextIndex < 0)
+	{
+		NextIndex += Ids.Num();
+	}
+
+	Slots[SlotIndex].SelectedPresetId = Ids[NextIndex];
 	BroadcastSlotChanged(SlotIndex);
 }

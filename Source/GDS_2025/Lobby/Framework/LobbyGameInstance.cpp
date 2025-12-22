@@ -3,6 +3,8 @@
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 #include "GDS_2025/Lobby/Presets/PresetLibrarySubsystem.h"
 #include "GDS_2025/Lobby/Presets/PresetPackDataAsset.h"
+#include "GDS_2025/Lobby/Framework/LobbyPlayerController.h"
+#include "Engine/LocalPlayer.h"
 
 void ULobbyGameInstance::Init()
 {
@@ -192,13 +194,11 @@ void ULobbyGameInstance::CycleSlotControl(const int32 SlotIndex, const int32 Del
 		return;
 	}
 
+	// Cycle only virtual options: None, AI (Bot), Matchmaking (Online).
 	TArray<FLobbyControlAssignment> Options;
-	DeviceRegistry->BuildAssignableOptions(Options);
-
-	if (Options.Num() == 0)
-	{
-		return;
-	}
+	Options.Add(FLobbyControlAssignment::None());
+	Options.Add(FLobbyControlAssignment::AI());
+	Options.Add(FLobbyControlAssignment::Matchmaking());
 
 	const FLobbyControlAssignment Current = Slots[SlotIndex].Control;
 
@@ -216,6 +216,71 @@ void ULobbyGameInstance::CycleSlotControl(const int32 SlotIndex, const int32 Del
 	if (NextIndex < 0) NextIndex += Options.Num();
 
 	SetSlotControl(SlotIndex, Options[NextIndex]);
+}
+
+bool ULobbyGameInstance::AssignPhysicalDeviceToSlot(const int32 SlotIndex, const FLobbyDeviceId& DeviceId)
+{
+	if (!IsValidSlotIndex(SlotIndex) || !DeviceRegistry)
+	{
+		return false;
+	}
+
+	// If device already reserved by another slot, move that slot to Matchmaking (online) first.
+	const int32 ExistingSlot = DeviceRegistry->GetReservedSlotForDevice(DeviceId);
+	if (ExistingSlot != INDEX_NONE && ExistingSlot != SlotIndex)
+	{
+		SetSlotControl(ExistingSlot, FLobbyControlAssignment::Matchmaking());
+	}
+
+	// Apply new physical assignment
+	FLobbyControlAssignment NewA;
+	if (DeviceId.Type == ELobbyDeviceType::Keyboard)
+	{
+		NewA = FLobbyControlAssignment::Keyboard();
+	}
+	else if (DeviceId.Type == ELobbyDeviceType::Gamepad)
+	{
+		NewA = FLobbyControlAssignment::Gamepad(DeviceId.Index);
+	}
+	else
+	{
+		return false;
+	}
+
+	return SetSlotControl(SlotIndex, NewA);
+}
+
+bool ULobbyGameInstance::AssignPhysicalDeviceFromController(ALobbyPlayerController* RequestingPC, const int32 SlotIndex)
+{
+	if (!RequestingPC || !DeviceRegistry)
+	{
+		return false;
+	}
+
+	// Try to infer device id from LocalPlayer controller id / mapping.
+	FLobbyDeviceId DevId = FLobbyDeviceId::None();
+	if (ULocalPlayer* LP = RequestingPC->GetLocalPlayer())
+	{
+		const int32 ControllerId = LP->GetControllerId();
+
+		// If controller id is non-negative and matches a connected gamepad index, treat as gamepad.
+		if (ControllerId >= 0 && DeviceRegistry->GetConnectedGamepadIndices().Contains(ControllerId))
+		{
+			DevId = FLobbyDeviceId::Gamepad(ControllerId);
+		}
+		else
+		{
+			// Fallback to keyboard reservation
+			DevId = FLobbyDeviceId::Keyboard();
+		}
+	}
+
+	if (DevId.Type == ELobbyDeviceType::None)
+	{
+		return false;
+	}
+
+	return AssignPhysicalDeviceToSlot(SlotIndex, DevId);
 }
 
 void ULobbyGameInstance::HandleDevicesChanged()

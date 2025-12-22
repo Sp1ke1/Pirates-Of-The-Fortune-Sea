@@ -197,9 +197,14 @@ void ALobbyPlayerController::OnFocusRight(const FInputActionValue& Value)
 void ALobbyPlayerController::OnConfirm(const FInputActionValue& Value)
 {
 	CacheLobbyRefs();
-	if (!LobbyGM) return;
+	if (!LobbyGI) return;
 
-	LobbyGM->OpenAssignControlUI(this, FocusedSlotIndex);
+	// Assign the physical device that triggered this PlayerController to the focused slot.
+	const bool bAssigned = LobbyGI->AssignPhysicalDeviceFromController(this, FocusedSlotIndex);
+	if (!bAssigned)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] Failed to assign physical device to slot %d"), FocusedSlotIndex);
+	}
 }
 
 void ALobbyPlayerController::OnCancel(const FInputActionValue& Value)

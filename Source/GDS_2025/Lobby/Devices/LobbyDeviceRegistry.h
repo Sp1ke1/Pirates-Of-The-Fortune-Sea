@@ -51,6 +51,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
 	TArray<int32> GetConnectedGamepadIndices() const { return ConnectedGamepadIndices; }
 
+	// Returns the slot index that currently reserves the given device, or INDEX_NONE.
+	UFUNCTION(BlueprintCallable, Category="Lobby|Devices")
+	int32 GetReservedSlotForDevice(const FLobbyDeviceId& DeviceId) const;
+
 private:
 	// Connected gamepad indices (0,1,2,...) as seen by the platform enumerator / mapper.
 	UPROPERTY()

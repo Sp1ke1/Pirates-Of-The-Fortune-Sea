@@ -7,6 +7,7 @@
 
 class ULobbyDeviceRegistry;
 class UPresetPackDataAsset;
+class ALobbyPlayerController;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLobbySlotChangedNative, int32, const FLobbySlotData&);
 
@@ -46,6 +47,14 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Lobby|Control")
 	void CycleSlotControl(int32 SlotIndex, int32 Delta);
+
+	// Assign a physical device by explicit device id (keyboard/gamepad index) to a slot.
+	UFUNCTION(BlueprintCallable, Category="Lobby|Control")
+	bool AssignPhysicalDeviceToSlot(int32 SlotIndex, const FLobbyDeviceId& DeviceId);
+
+	// Convenience: assign the physical device that corresponds to the given PlayerController.
+	UFUNCTION(BlueprintCallable, Category="Lobby|Control")
+	bool AssignPhysicalDeviceFromController(ALobbyPlayerController* RequestingPC, int32 SlotIndex);
 
 
 protected:

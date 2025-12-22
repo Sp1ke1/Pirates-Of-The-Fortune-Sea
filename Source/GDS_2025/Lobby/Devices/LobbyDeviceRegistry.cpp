@@ -244,3 +244,12 @@ FText ULobbyDeviceRegistry::ToDisplayText(const FLobbyControlAssignment& A) cons
 		return FText::FromString(TEXT("UNKNOWN"));
 	}
 }
+
+int32 ULobbyDeviceRegistry::GetReservedSlotForDevice(const FLobbyDeviceId& DeviceId) const
+{
+	if (const int32* SlotPtr = ReservedByDeviceId.Find(DeviceId))
+	{
+		return *SlotPtr;
+	}
+	return INDEX_NONE;
+}

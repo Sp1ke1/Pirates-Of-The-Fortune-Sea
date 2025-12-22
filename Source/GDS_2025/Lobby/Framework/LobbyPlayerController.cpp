@@ -2,6 +2,7 @@
 
 #include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
 #include "GDS_2025/Lobby/Framework/LobbyGameMode.h"
+#include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 #include "GDS_2025/Lobby/Actors/LobbyFocusLampActor.h"
 #include "GDS_2025/Lobby/Actors/LobbySlotActor.h"
 
@@ -217,7 +218,21 @@ void ALobbyPlayerController::OnSkinPrev(const FInputActionValue& Value)
 	CacheLobbyRefs();
 	if (!LobbyGI) return;
 
-	LobbyGI->CyclePreset(FocusedSlotIndex, -1);
+	FLobbyDeviceId DevId = FLobbyDeviceId::None();
+	if (ULocalPlayer* LP = GetLocalPlayer())
+	{
+		const int32 ControllerId = LP->GetControllerId();
+		if (LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
+		{
+			DevId = FLobbyDeviceId::Gamepad(ControllerId);
+		}
+		else
+		{
+			DevId = FLobbyDeviceId::Keyboard();
+		}
+	}
+
+	LobbyGI->CyclePresetWithDevice(FocusedSlotIndex, -1, DevId);
 }
 
 void ALobbyPlayerController::OnSkinNext(const FInputActionValue& Value)
@@ -225,7 +240,21 @@ void ALobbyPlayerController::OnSkinNext(const FInputActionValue& Value)
 	CacheLobbyRefs();
 	if (!LobbyGI) return;
 
-	LobbyGI->CyclePreset(FocusedSlotIndex, +1);
+	FLobbyDeviceId DevId = FLobbyDeviceId::None();
+	if (ULocalPlayer* LP = GetLocalPlayer())
+	{
+		const int32 ControllerId = LP->GetControllerId();
+		if (LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
+		{
+			DevId = FLobbyDeviceId::Gamepad(ControllerId);
+		}
+		else
+		{
+			DevId = FLobbyDeviceId::Keyboard();
+		}
+	}
+
+	LobbyGI->CyclePresetWithDevice(FocusedSlotIndex, +1, DevId);
 }
 
 // ---- Mouse hover (unchanged) ----

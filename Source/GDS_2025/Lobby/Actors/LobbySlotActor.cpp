@@ -7,6 +7,9 @@
 #include "Components/StaticMeshComponent.h"
 #include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
+#include "GDS_2025/Lobby/Framework/LobbyPlayerController.h"
+
+#include "Engine/Engine.h"
 
 ALobbySlotActor::ALobbySlotActor()
 {
@@ -33,17 +36,85 @@ ALobbySlotActor::ALobbySlotActor()
 	LeftTriangle->SetupAttachment(Root);
 	LeftTriangle->SetRelativeLocation(FVector(-35.f, 80.f, 120.f));
 	LeftTriangle->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	LeftTriangle->SetCollisionResponseToAllChannels(ECR_Block);
 
 	RightTriangle = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("RightTriangle"));
 	RightTriangle->SetupAttachment(Root);
 	RightTriangle->SetRelativeLocation(FVector(35.f, 80.f, 120.f));
 	RightTriangle->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	RightTriangle->SetCollisionResponseToAllChannels(ECR_Block);
 
 	// Allow traces for hover
 	CharacterMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CharacterMesh->SetCollisionResponseToAllChannels(ECR_Block);
 
+	// Bind click handlers so mouse clicks on triangles change presets.
+	if (LeftTriangle)
+	{
+		LeftTriangle->OnClicked.AddDynamic(this, &ALobbySlotActor::OnLeftTriangleClicked);
+	}
+	if (RightTriangle)
+	{
+		RightTriangle->OnClicked.AddDynamic(this, &ALobbySlotActor::OnRightTriangleClicked);
+	}
+
 	UpdateFocusVisuals();
+}
+
+void ALobbySlotActor::OnLeftTriangleClicked(UPrimitiveComponent* /*TouchedComponent*/, FKey /*ButtonPressed*/)
+{
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (ULobbyGameInstance* LobbyGI = Cast<ULobbyGameInstance>(GI))
+		{
+			FLobbyDeviceId DevId = FLobbyDeviceId::Keyboard();
+			if (GetWorld())
+			{
+				APlayerController* PC = GetWorld()->GetFirstPlayerController();
+				if (ALobbyPlayerController* LPC = Cast<ALobbyPlayerController>(PC))
+				{
+					if (ULocalPlayer* LP = LPC->GetLocalPlayer())
+					{
+						const int32 ControllerId = LP->GetControllerId();
+						if (LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
+						{
+							DevId = FLobbyDeviceId::Gamepad(ControllerId);
+						}
+					}
+				}
+			}
+
+			LobbyGI->CyclePresetWithDevice(SlotIndex, -1, DevId);
+		}
+	}
+}
+
+void ALobbySlotActor::OnRightTriangleClicked(UPrimitiveComponent* /*TouchedComponent*/, FKey /*ButtonPressed*/)
+{
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (ULobbyGameInstance* LobbyGI = Cast<ULobbyGameInstance>(GI))
+		{
+			FLobbyDeviceId DevId = FLobbyDeviceId::Keyboard();
+			if (GetWorld())
+			{
+				APlayerController* PC = GetWorld()->GetFirstPlayerController();
+				if (ALobbyPlayerController* LPC = Cast<ALobbyPlayerController>(PC))
+				{
+					if (ULocalPlayer* LP = LPC->GetLocalPlayer())
+					{
+						const int32 ControllerId = LP->GetControllerId();
+						if (LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
+						{
+							DevId = FLobbyDeviceId::Gamepad(ControllerId);
+						}
+					}
+				}
+			}
+
+			LobbyGI->CyclePresetWithDevice(SlotIndex, +1, DevId);
+		}
+	}
 }
 
 void ALobbySlotActor::ApplyData(const FLobbySlotData& Data)

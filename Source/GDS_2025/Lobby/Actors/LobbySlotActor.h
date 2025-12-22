@@ -61,6 +61,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	USceneComponent* GetFocusAnchor() const { return FocusAnchor; }
 
+	// Click handlers for triangles
+	UFUNCTION()
+	void OnLeftTriangleClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed);
+
+	UFUNCTION()
+	void OnRightTriangleClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed);
+
 	// Presets (for now just skeletal meshes). Set these in BP_LobbySlotActor.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby|Presets")
 	TArray<TObjectPtr<USkeletalMesh>> PresetMeshes;

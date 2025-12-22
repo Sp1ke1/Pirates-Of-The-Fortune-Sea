@@ -42,6 +42,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
 	void CyclePreset(int32 SlotIndex, int32 Delta);
 
+	// Cycle preset with information about the requesting device — used to enforce permission rules.
+	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
+	void CyclePresetWithDevice(int32 SlotIndex, int32 Delta, const FLobbyDeviceId& RequestingDevice);
+
 	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
 	void SetSelectedPresetId(int32 SlotIndex, const FGuid& PresetId);
 

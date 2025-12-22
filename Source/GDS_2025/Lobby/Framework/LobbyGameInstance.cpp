@@ -150,7 +150,51 @@ void ULobbyGameInstance::SetSelectedPresetId(const int32 SlotIndex, const FGuid&
 
 void ULobbyGameInstance::CyclePreset(const int32 SlotIndex, const int32 Delta)
 {
+	// Backwards-compatible: no requesting device => allow.
+	CyclePresetWithDevice(SlotIndex, Delta, FLobbyDeviceId::None());
+}
+
+void ULobbyGameInstance::CyclePresetWithDevice(const int32 SlotIndex, const int32 Delta, const FLobbyDeviceId& RequestingDevice)
+{
 	if (!IsValidSlotIndex(SlotIndex))
+	{
+		return;
+	}
+
+	// Permission check: allow if requester is none (internal), or slot is virtual (None/AI/Matchmaking),
+	// or the slot is physically assigned to the requesting device.
+	const FLobbyControlAssignment& CurrentControl = Slots[SlotIndex].Control;
+	bool bAllowed = false;
+
+	if (RequestingDevice.Type == ELobbyDeviceType::None)
+	{
+		bAllowed = true; // internal calls
+	}
+	else
+	{
+		switch (CurrentControl.Source)
+		{
+		case ELobbyControlSource::None:
+		case ELobbyControlSource::AI:
+		case ELobbyControlSource::Matchmaking:
+			bAllowed = true;
+			break;
+
+		case ELobbyControlSource::Keyboard:
+			bAllowed = (RequestingDevice.Type == ELobbyDeviceType::Keyboard);
+			break;
+
+		case ELobbyControlSource::Gamepad:
+			bAllowed = (RequestingDevice.Type == ELobbyDeviceType::Gamepad && CurrentControl.DeviceId == RequestingDevice);
+			break;
+
+		default:
+			bAllowed = false;
+			break;
+		}
+	}
+
+	if (!bAllowed)
 	{
 		return;
 	}

@@ -5,6 +5,9 @@
 
 #include "Kismet/GameplayStatics.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/AssetManager.h"
+#include "Engine/StreamableManager.h"
+#include "UObject/SoftObjectPath.h"
 
 void UPresetLibrarySubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -12,6 +15,9 @@ void UPresetLibrarySubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
 	// Load (or create) user presets on startup
 	LoadUserPresets();
+
+	// Start simple async preload of all preset meshes so Apply is fast later.
+	PreloadAllPresetMeshes();
 }
 
 void UPresetLibrarySubsystem::SetDevPresetPacks(const TArray<UPresetPackDataAsset*>& InPacks)
@@ -197,4 +203,34 @@ bool UPresetLibrarySubsystem::ApplyPresetToMeshById(const FGuid& Id, USkeletalMe
 
 	Record->ApplyToMeshComponent(MeshComp);
 	return true;
+}
+
+void UPresetLibrarySubsystem::PreloadAllPresetMeshes()
+{
+	TArray<FCharacterPresetRecord> All = GetAllPresets();
+
+	TArray<FSoftObjectPath> Paths;
+	Paths.Reserve(All.Num());
+
+	for (const FCharacterPresetRecord& R : All)
+	{
+		const FSoftObjectPath P = R.MainMesh.ToSoftObjectPath();
+		if (P.IsValid() && !Paths.Contains(P))
+		{
+			Paths.Add(P);
+		}
+	}
+
+	if (Paths.Num() == 0)
+	{
+		UE_LOG(LogTemp, Verbose, TEXT("[PresetLib] No preset meshes to preload."));
+		return;
+	}
+
+	FStreamableManager& Streamable = UAssetManager::GetStreamableManager();
+	PreloadHandle = Streamable.RequestAsyncLoad(Paths, FStreamableDelegate::CreateLambda([]() {
+		UE_LOG(LogTemp, Log, TEXT("[PresetLib] Preset mesh preload finished."));
+	}));
+
+	UE_LOG(LogTemp, Log, TEXT("[PresetLib] Started async preload of %d preset meshes."), Paths.Num());
 }

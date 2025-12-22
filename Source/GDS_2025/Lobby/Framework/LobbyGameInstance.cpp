@@ -26,8 +26,8 @@ void ULobbyGameInstance::Init()
 	if (UPresetLibrarySubsystem* PresetLib = GetSubsystem<UPresetLibrarySubsystem>())
 	{
 		PresetLib->SetDevPresetPacks(DefaultDevPresetPacks);
-		// Subsystem loads user presets in Initialize(), but you can force here if you want:
-		// PresetLib->LoadUserPresets();
+		// Trigger preload now that dev packs are provided so meshes start loading during Init.
+		PresetLib->PreloadAllPresetMeshes();
 	}
 
 	InitializeDefaultSlots();

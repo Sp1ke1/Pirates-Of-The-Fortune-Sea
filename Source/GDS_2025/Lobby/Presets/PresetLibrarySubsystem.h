@@ -65,6 +65,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Presets|Apply")
 	bool ApplyPresetToMeshById(const FGuid& Id, USkeletalMeshComponent* MeshComp) const;
 
+	// Request async preload of all preset meshes (dev + user) so Apply calls are instant later.
+	UFUNCTION(BlueprintCallable, Category="Presets|Load")
+	void PreloadAllPresetMeshes();
+
 	// -------------------------
 	// Settings
 	// -------------------------
@@ -86,4 +90,7 @@ private:
 private:
 	void EnsureSaveObject();
 	void CollectDevPresets(TArray<FCharacterPresetRecord>& Out) const;
+
+	// Keep handle alive while preloading
+	TSharedPtr<struct FStreamableHandle> PreloadHandle;
 };

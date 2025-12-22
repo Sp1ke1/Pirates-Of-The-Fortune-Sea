@@ -5,6 +5,7 @@
 #include "GDS_2025/Lobby/Presets/PresetPackDataAsset.h"
 #include "GDS_2025/Lobby/Framework/LobbyPlayerController.h"
 #include "Engine/LocalPlayer.h"
+#include "InputCoreTypes.h"
 
 void ULobbyGameInstance::Init()
 {
@@ -257,21 +258,71 @@ bool ULobbyGameInstance::AssignPhysicalDeviceFromController(ALobbyPlayerControll
 		return false;
 	}
 
-	// Try to infer device id from LocalPlayer controller id / mapping.
+	// Heuristic: check which type of input is currently pressed on this controller.
+	// Prefer gamepad if a common gamepad confirm button is down; otherwise prefer keyboard.
+	bool bGamepadPressed = false;
+	bool bKeyboardPressed = false;
+
+	// Common keys to check
+	const TArray<FKey> GamepadConfirmKeys = {
+		EKeys::Gamepad_FaceButton_Bottom,
+		EKeys::Gamepad_FaceButton_Right,
+		EKeys::Gamepad_FaceButton_Left,
+		EKeys::Gamepad_FaceButton_Top,
+		EKeys::Gamepad_Special_Left,
+		EKeys::Gamepad_Special_Right
+	};
+
+	const TArray<FKey> KeyboardConfirmKeys = {
+		EKeys::Enter,
+		EKeys::SpaceBar
+	};
+
+	for (const FKey& K : GamepadConfirmKeys)
+	{
+		if (RequestingPC->IsInputKeyDown(K))
+		{
+			bGamepadPressed = true;
+			break;
+		}
+	}
+
+	if (!bGamepadPressed)
+	{
+		for (const FKey& K : KeyboardConfirmKeys)
+		{
+			if (RequestingPC->IsInputKeyDown(K))
+			{
+				bKeyboardPressed = true;
+				break;
+			}
+		}
+	}
+
 	FLobbyDeviceId DevId = FLobbyDeviceId::None();
 	if (ULocalPlayer* LP = RequestingPC->GetLocalPlayer())
 	{
 		const int32 ControllerId = LP->GetControllerId();
 
-		// If controller id is non-negative and matches a connected gamepad index, treat as gamepad.
-		if (ControllerId >= 0 && DeviceRegistry->GetConnectedGamepadIndices().Contains(ControllerId))
+		if (bGamepadPressed && ControllerId >= 0 && DeviceRegistry->GetConnectedGamepadIndices().Contains(ControllerId))
 		{
 			DevId = FLobbyDeviceId::Gamepad(ControllerId);
 		}
+		else if (bKeyboardPressed)
+		{
+			DevId = FLobbyDeviceId::Keyboard();
+		}
 		else
 		{
-			// Fallback to keyboard reservation
-			DevId = FLobbyDeviceId::Keyboard();
+			// If we couldn't detect a button but controller id looks like a gamepad, prefer keyboard only if keyboard input is available.
+			if (ControllerId >= 0 && DeviceRegistry->GetConnectedGamepadIndices().Contains(ControllerId) && !RequestingPC->IsInputKeyDown(EKeys::Enter) )
+			{
+				DevId = FLobbyDeviceId::Gamepad(ControllerId);
+			}
+			else
+			{
+				DevId = FLobbyDeviceId::Keyboard();
+			}
 		}
 	}
 

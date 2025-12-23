@@ -2,6 +2,7 @@
 
 #include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
 #include "GDS_2025/Lobby/Framework/LobbySubsystem.h"
+#include "GDS_2025/Lobby/Framework/LobbyUtils.h"
 #include "GDS_2025/Lobby/Framework/LobbyGameMode.h"
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 #include "GDS_2025/Lobby/Actors/LobbyFocusLampActor.h"
@@ -237,22 +238,11 @@ void ALobbyPlayerController::StartHoldStartGame(const FInputActionValue& Value)
 		return;
 	}
 
-	// Determine device id for this local player (gamepad vs keyboard)
-	FLobbyDeviceId DevId = FLobbyDeviceId::None();
-	if (ULocalPlayer* LP = GetLocalPlayer())
+	// Determine device id and begin hold
 	{
-		const int32 ControllerId = LP->GetControllerId();
-		if (LobbyGI && LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
-		{
-			DevId = FLobbyDeviceId::Gamepad(ControllerId);
-		}
-		else
-		{
-			DevId = FLobbyDeviceId::Keyboard();
-		}
+		const FLobbyDeviceId DevId = GetDeviceIdForController(this, LobbyGI ? LobbyGI->GetDeviceRegistry() : nullptr);
+		StartCannon->BeginHold(DevId);
 	}
-
-	StartCannon->BeginHold(DevId);
 }
 
 void ALobbyPlayerController::StopHoldStartGame(const FInputActionValue& Value)
@@ -268,25 +258,14 @@ void ALobbyPlayerController::OnSkinPrev(const FInputActionValue& Value)
 	CacheLobbyRefs();
 	if (!LobbyGI) return;
 
-	FLobbyDeviceId DevId = FLobbyDeviceId::None();
-	if (ULocalPlayer* LP = GetLocalPlayer())
 	{
-		const int32 ControllerId = LP->GetControllerId();
-		if (LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
+		const FLobbyDeviceId DevId = GetDeviceIdForController(this, LobbyGI ? LobbyGI->GetDeviceRegistry() : nullptr);
+		if (LobbyGI)
 		{
-			DevId = FLobbyDeviceId::Gamepad(ControllerId);
-		}
-		else
-		{
-			DevId = FLobbyDeviceId::Keyboard();
-		}
-	}
-
-	if (LobbyGI)
-	{
-		if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
-		{
-			Sub->CyclePresetWithDevice(FocusedSlotIndex, -1, DevId);
+			if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
+			{
+				Sub->CyclePresetWithDevice(FocusedSlotIndex, -1, DevId);
+			}
 		}
 	}
 }
@@ -296,25 +275,14 @@ void ALobbyPlayerController::OnSkinNext(const FInputActionValue& Value)
 	CacheLobbyRefs();
 	if (!LobbyGI) return;
 
-	FLobbyDeviceId DevId = FLobbyDeviceId::None();
-	if (ULocalPlayer* LP = GetLocalPlayer())
 	{
-		const int32 ControllerId = LP->GetControllerId();
-		if (LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
+		const FLobbyDeviceId DevId = GetDeviceIdForController(this, LobbyGI ? LobbyGI->GetDeviceRegistry() : nullptr);
+		if (LobbyGI)
 		{
-			DevId = FLobbyDeviceId::Gamepad(ControllerId);
-		}
-		else
-		{
-			DevId = FLobbyDeviceId::Keyboard();
-		}
-	}
-
-	if (LobbyGI)
-	{
-		if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
-		{
-			Sub->CyclePresetWithDevice(FocusedSlotIndex, +1, DevId);
+			if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
+			{
+				Sub->CyclePresetWithDevice(FocusedSlotIndex, +1, DevId);
+			}
 		}
 	}
 }

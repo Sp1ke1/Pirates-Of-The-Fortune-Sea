@@ -9,6 +9,7 @@
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 #include "GDS_2025/Lobby/Framework/LobbyPlayerController.h"
 #include "GDS_2025/Lobby/Framework/LobbySubsystem.h"
+#include "GDS_2025/Lobby/Framework/LobbyUtils.h"
 
 #include "Engine/Engine.h"
 
@@ -128,25 +129,9 @@ void ALobbySlotActor::OnLeftTriangleClicked(UPrimitiveComponent* /*TouchedCompon
 	{
 		if (ULobbyGameInstance* LobbyGI = Cast<ULobbyGameInstance>(GI))
 		{
-			FLobbyDeviceId DevId = FLobbyDeviceId::Keyboard();
-			if (GetWorld())
-			{
-				APlayerController* PC = GetWorld()->GetFirstPlayerController();
-				if (ALobbyPlayerController* LPC = Cast<ALobbyPlayerController>(PC))
-				{
-					if (ULocalPlayer* LP = LPC->GetLocalPlayer())
-					{
-						const int32 ControllerId = LP->GetControllerId();
-						if (LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
-						{
-							DevId = FLobbyDeviceId::Gamepad(ControllerId);
-						}
-					}
-				}
-			}
-
 			if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
 			{
+				const FLobbyDeviceId DevId = GetDeviceIdForController(GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr, LobbyGI->GetDeviceRegistry());
 				Sub->CyclePresetWithDevice(SlotIndex, -1, DevId);
 			}
 		}
@@ -159,25 +144,9 @@ void ALobbySlotActor::OnRightTriangleClicked(UPrimitiveComponent* /*TouchedCompo
 	{
 		if (ULobbyGameInstance* LobbyGI = Cast<ULobbyGameInstance>(GI))
 		{
-			FLobbyDeviceId DevId = FLobbyDeviceId::Keyboard();
-			if (GetWorld())
-			{
-				APlayerController* PC = GetWorld()->GetFirstPlayerController();
-				if (ALobbyPlayerController* LPC = Cast<ALobbyPlayerController>(PC))
-				{
-					if (ULocalPlayer* LP = LPC->GetLocalPlayer())
-					{
-						const int32 ControllerId = LP->GetControllerId();
-						if (LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
-						{
-							DevId = FLobbyDeviceId::Gamepad(ControllerId);
-						}
-					}
-				}
-			}
-
 			if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
 			{
+				const FLobbyDeviceId DevId = GetDeviceIdForController(GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr, LobbyGI->GetDeviceRegistry());
 				Sub->CyclePresetWithDevice(SlotIndex, +1, DevId);
 			}
 		}

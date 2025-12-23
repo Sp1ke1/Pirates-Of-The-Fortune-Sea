@@ -41,6 +41,31 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<UStaticMeshComponent> RightTriangle = nullptr;
 
+	// Up/Down triangles for cycling control mode
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UStaticMeshComponent> UpTriangle = nullptr;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UStaticMeshComponent> DownTriangle = nullptr;
+
+	// Helper prompt: assign this slot (A / Enter)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UTextRenderComponent> AssignText = nullptr;
+
+	// Labels showing which button switches skins
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UTextRenderComponent> SkinPrevLabel = nullptr;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UTextRenderComponent> SkinNextLabel = nullptr;
+
+	// Labels for the Up/Down triangle hints
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UTextRenderComponent> UpLabel = nullptr;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UTextRenderComponent> DownLabel = nullptr;
+
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	void ApplyData(const FLobbySlotData& Data);
 
@@ -67,6 +92,12 @@ public:
 
 	UFUNCTION()
 	void OnRightTriangleClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed);
+
+	UFUNCTION()
+	void OnUpTriangleClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed);
+
+	UFUNCTION()
+	void OnDownTriangleClicked(UPrimitiveComponent* TouchedComponent, FKey ButtonPressed);
 
 	// Presets (for now just skeletal meshes). Set these in BP_LobbySlotActor.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Lobby|Presets")

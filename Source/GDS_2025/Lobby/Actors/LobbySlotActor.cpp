@@ -44,6 +44,57 @@ ALobbySlotActor::ALobbySlotActor()
 	RightTriangle->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	RightTriangle->SetCollisionResponseToAllChannels(ECR_Block);
 
+	// Up/Down triangles for control cycling
+	UpTriangle = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("UpTriangle"));
+	UpTriangle->SetupAttachment(Root);
+	UpTriangle->SetRelativeLocation(FVector(0.f, 60.f, 160.f));
+	UpTriangle->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	UpTriangle->SetCollisionResponseToAllChannels(ECR_Block);
+
+	DownTriangle = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DownTriangle"));
+	DownTriangle->SetupAttachment(Root);
+	DownTriangle->SetRelativeLocation(FVector(0.f, 100.f, 80.f));
+	DownTriangle->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	DownTriangle->SetCollisionResponseToAllChannels(ECR_Block);
+
+	// Assign prompt
+	AssignText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("AssignText"));
+	AssignText->SetupAttachment(Root);
+	AssignText->SetRelativeLocation(FVector(0.f, 40.f, 100.f));
+	AssignText->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+	AssignText->SetText(FText::FromString(TEXT("Assign Me Here (A / Enter)")));
+	AssignText->SetWorldSize(20.f);
+
+	// Skin labels
+	SkinPrevLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("SkinPrevLabel"));
+	SkinPrevLabel->SetupAttachment(LeftTriangle);
+	SkinPrevLabel->SetRelativeLocation(FVector(0.f, 0.f, -20.f));
+	SkinPrevLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+	SkinPrevLabel->SetText(FText::FromString(TEXT("Prev Skin (LB / <)")));
+	SkinPrevLabel->SetWorldSize(14.f);
+
+	SkinNextLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("SkinNextLabel"));
+	SkinNextLabel->SetupAttachment(RightTriangle);
+	SkinNextLabel->SetRelativeLocation(FVector(0.f, 0.f, -20.f));
+	SkinNextLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+	SkinNextLabel->SetText(FText::FromString(TEXT("Next Skin (RB / >)")));
+	SkinNextLabel->SetWorldSize(14.f);
+
+	// Up/Down labels for control cycling
+	UpLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("UpLabel"));
+	UpLabel->SetupAttachment(UpTriangle);
+	UpLabel->SetRelativeLocation(FVector(0.f, 0.f, -20.f));
+	UpLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+	UpLabel->SetText(FText::FromString(TEXT("Control Up (UpArrow / W)")));
+	UpLabel->SetWorldSize(14.f);
+
+	DownLabel = CreateDefaultSubobject<UTextRenderComponent>(TEXT("DownLabel"));
+	DownLabel->SetupAttachment(DownTriangle);
+	DownLabel->SetRelativeLocation(FVector(0.f, 0.f, -20.f));
+	DownLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+	DownLabel->SetText(FText::FromString(TEXT("Control Down (DownArrow / S)")));
+	DownLabel->SetWorldSize(14.f);
+
 	// Allow traces for hover
 	CharacterMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CharacterMesh->SetCollisionResponseToAllChannels(ECR_Block);
@@ -57,6 +108,15 @@ ALobbySlotActor::ALobbySlotActor()
 	{
 		RightTriangle->OnClicked.AddDynamic(this, &ALobbySlotActor::OnRightTriangleClicked);
 	}
+
+    if (UpTriangle)
+    {
+        UpTriangle->OnClicked.AddDynamic(this, &ALobbySlotActor::OnUpTriangleClicked);
+    }
+    if (DownTriangle)
+    {
+        DownTriangle->OnClicked.AddDynamic(this, &ALobbySlotActor::OnDownTriangleClicked);
+    }
 
 	UpdateFocusVisuals();
 }
@@ -113,6 +173,28 @@ void ALobbySlotActor::OnRightTriangleClicked(UPrimitiveComponent* /*TouchedCompo
 			}
 
 			LobbyGI->CyclePresetWithDevice(SlotIndex, +1, DevId);
+		}
+	}
+}
+
+void ALobbySlotActor::OnUpTriangleClicked(UPrimitiveComponent* /*TouchedComponent*/, FKey /*ButtonPressed*/)
+{
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (ULobbyGameInstance* LobbyGI = Cast<ULobbyGameInstance>(GI))
+		{
+			LobbyGI->CycleSlotControl(SlotIndex, -1);
+		}
+	}
+}
+
+void ALobbySlotActor::OnDownTriangleClicked(UPrimitiveComponent* /*TouchedComponent*/, FKey /*ButtonPressed*/)
+{
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		if (ULobbyGameInstance* LobbyGI = Cast<ULobbyGameInstance>(GI))
+		{
+			LobbyGI->CycleSlotControl(SlotIndex, +1);
 		}
 	}
 }

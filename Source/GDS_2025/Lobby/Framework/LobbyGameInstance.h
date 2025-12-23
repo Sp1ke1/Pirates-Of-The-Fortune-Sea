@@ -39,12 +39,7 @@ public:
 	bool SetSlotControl(int32 SlotIndex, const FLobbyControlAssignment& NewControl);
 
 	// RB/LB should call this (cycles through PresetLibrary's available preset IDs)
-	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
-	void CyclePreset(int32 SlotIndex, int32 Delta);
-
-	// Cycle preset with information about the requesting device — used to enforce permission rules.
-	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
-	void CyclePresetWithDevice(int32 SlotIndex, int32 Delta, const FLobbyDeviceId& RequestingDevice);
+	// NOTE: preset-cycling moved to ULobbySubsystem to keep GameInstance minimal.
 
 	UFUNCTION(BlueprintCallable, Category="Lobby|Presets")
 	void SetSelectedPresetId(int32 SlotIndex, const FGuid& PresetId);

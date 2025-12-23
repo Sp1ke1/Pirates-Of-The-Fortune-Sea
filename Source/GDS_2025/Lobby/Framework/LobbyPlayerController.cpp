@@ -1,6 +1,7 @@
 #include "GDS_2025/Lobby/Framework/LobbyPlayerController.h"
 
 #include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
+#include "GDS_2025/Lobby/Framework/LobbySubsystem.h"
 #include "GDS_2025/Lobby/Framework/LobbyGameMode.h"
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 #include "GDS_2025/Lobby/Actors/LobbyFocusLampActor.h"
@@ -281,7 +282,13 @@ void ALobbyPlayerController::OnSkinPrev(const FInputActionValue& Value)
 		}
 	}
 
-	LobbyGI->CyclePresetWithDevice(FocusedSlotIndex, -1, DevId);
+	if (LobbyGI)
+	{
+		if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
+		{
+			Sub->CyclePresetWithDevice(FocusedSlotIndex, -1, DevId);
+		}
+	}
 }
 
 void ALobbyPlayerController::OnSkinNext(const FInputActionValue& Value)
@@ -303,7 +310,13 @@ void ALobbyPlayerController::OnSkinNext(const FInputActionValue& Value)
 		}
 	}
 
-	LobbyGI->CyclePresetWithDevice(FocusedSlotIndex, +1, DevId);
+	if (LobbyGI)
+	{
+		if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
+		{
+			Sub->CyclePresetWithDevice(FocusedSlotIndex, +1, DevId);
+		}
+	}
 }
 
 // ---- Mouse hover (unchanged) ----

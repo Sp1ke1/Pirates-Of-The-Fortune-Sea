@@ -8,6 +8,7 @@
 #include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 #include "GDS_2025/Lobby/Framework/LobbyPlayerController.h"
+#include "GDS_2025/Lobby/Framework/LobbySubsystem.h"
 
 #include "Engine/Engine.h"
 
@@ -144,7 +145,10 @@ void ALobbySlotActor::OnLeftTriangleClicked(UPrimitiveComponent* /*TouchedCompon
 				}
 			}
 
-			LobbyGI->CyclePresetWithDevice(SlotIndex, -1, DevId);
+			if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
+			{
+				Sub->CyclePresetWithDevice(SlotIndex, -1, DevId);
+			}
 		}
 	}
 }
@@ -172,7 +176,10 @@ void ALobbySlotActor::OnRightTriangleClicked(UPrimitiveComponent* /*TouchedCompo
 				}
 			}
 
-			LobbyGI->CyclePresetWithDevice(SlotIndex, +1, DevId);
+			if (ULobbySubsystem* Sub = LobbyGI->GetSubsystem<ULobbySubsystem>())
+			{
+				Sub->CyclePresetWithDevice(SlotIndex, +1, DevId);
+			}
 		}
 	}
 }

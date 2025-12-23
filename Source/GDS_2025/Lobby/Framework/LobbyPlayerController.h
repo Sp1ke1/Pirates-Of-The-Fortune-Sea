@@ -9,6 +9,7 @@ class ULobbyGameInstance;
 class ALobbyGameMode;
 class ALobbyFocusLampActor;
 class ALobbySlotActor;
+class ALobbyStartCannonActor;
 
 class UInputMappingContext;
 class UInputAction;
@@ -86,6 +87,9 @@ protected:
 	void OnSkinPrev(const FInputActionValue& Value);
 	void OnSkinNext(const FInputActionValue& Value);
 
+	void StartHoldStartGame(const FInputActionValue& Value);
+	void StopHoldStartGame(const FInputActionValue& Value);
+
 	void OnControlUp(const FInputActionValue& Value);
 	void OnControlDown(const FInputActionValue& Value);
 
@@ -114,6 +118,10 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
 	TObjectPtr<UInputAction> IA_ControlDown = nullptr;
 
+	// Start Game hold action
+	UPROPERTY(EditDefaultsOnly, Category="Lobby|Input")
+	TObjectPtr<UInputAction> IA_LobbyStartGame = nullptr;
+
 private:
 	void CacheLobbyRefs();
 
@@ -126,4 +134,8 @@ private:
 	void UpdateMouseHoverFocus();
 
 	void AddLobbyMappingContext();
+
+	// Cannon actor in the level
+	UPROPERTY()
+	TObjectPtr<class ALobbyStartCannonActor> StartCannon = nullptr;
 };

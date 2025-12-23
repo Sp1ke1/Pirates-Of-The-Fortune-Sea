@@ -5,6 +5,7 @@
 #include "GDS_2025/Lobby/Devices/LobbyDeviceRegistry.h"
 #include "GDS_2025/Lobby/Actors/LobbyFocusLampActor.h"
 #include "GDS_2025/Lobby/Actors/LobbySlotActor.h"
+#include "GDS_2025/Lobby/Actors/LobbyStartCannonActor.h"
 
 #include "Engine/World.h"
 
@@ -13,6 +14,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "InputAction.h"
+#include "EngineUtils.h"
 
 ALobbyPlayerController::ALobbyPlayerController()
 {
@@ -31,6 +33,16 @@ void ALobbyPlayerController::BeginPlay()
 	EnsureFocusLamp();
 	ClampAndApplyFocus();
 	MoveLampToFocusedSlot();
+
+	// Try to find the cannon actor in the level (first found)
+	if (GetWorld())
+	{
+		for (TActorIterator<ALobbyStartCannonActor> It(GetWorld()); It; ++It)
+		{
+			StartCannon = *It;
+			break;
+		}
+	}
 }
 
 void ALobbyPlayerController::CacheLobbyRefs()
@@ -87,6 +99,10 @@ void ALobbyPlayerController::SetupInputComponent()
 
 	if (IA_SkinPrev)   EIC->BindAction(IA_SkinPrev, ETriggerEvent::Started, this, &ALobbyPlayerController::OnSkinPrev);
 	if (IA_SkinNext)   EIC->BindAction(IA_SkinNext, ETriggerEvent::Started, this, &ALobbyPlayerController::OnSkinNext);
+
+	if (IA_LobbyStartGame) EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Started, this, &ALobbyPlayerController::StartHoldStartGame);
+	if (IA_LobbyStartGame) EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Completed, this, &ALobbyPlayerController::StopHoldStartGame);
+	if (IA_LobbyStartGame) EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Canceled, this, &ALobbyPlayerController::StopHoldStartGame);
 
 	if (IA_ControlUp)   EIC->BindAction(IA_ControlUp,   ETriggerEvent::Started, this, &ALobbyPlayerController::OnControlUp);
 	if (IA_ControlDown) EIC->BindAction(IA_ControlDown, ETriggerEvent::Started, this, &ALobbyPlayerController::OnControlDown);
@@ -211,6 +227,39 @@ void ALobbyPlayerController::OnConfirm(const FInputActionValue& Value)
 void ALobbyPlayerController::OnCancel(const FInputActionValue& Value)
 {
 	UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Cancel pressed"));
+}
+
+void ALobbyPlayerController::StartHoldStartGame(const FInputActionValue& Value)
+{
+	if (!StartCannon)
+	{
+		return;
+	}
+
+	// Determine device id for this local player (gamepad vs keyboard)
+	FLobbyDeviceId DevId = FLobbyDeviceId::None();
+	if (ULocalPlayer* LP = GetLocalPlayer())
+	{
+		const int32 ControllerId = LP->GetControllerId();
+		if (LobbyGI && LobbyGI->GetDeviceRegistry() && LobbyGI->GetDeviceRegistry()->GetConnectedGamepadIndices().Contains(ControllerId))
+		{
+			DevId = FLobbyDeviceId::Gamepad(ControllerId);
+		}
+		else
+		{
+			DevId = FLobbyDeviceId::Keyboard();
+		}
+	}
+
+	StartCannon->BeginHold(DevId);
+}
+
+void ALobbyPlayerController::StopHoldStartGame(const FInputActionValue& Value)
+{
+	if (StartCannon)
+	{
+		StartCannon->EndHold();
+	}
 }
 
 void ALobbyPlayerController::OnSkinPrev(const FInputActionValue& Value)

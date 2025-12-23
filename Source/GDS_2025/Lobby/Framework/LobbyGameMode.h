@@ -25,8 +25,14 @@ public:
 	void OpenAssignControlUI(ALobbyPlayerController* RequestingPC, int32 SlotIndex);
 
 	// Re-apply one slot to the world (slot actors, etc.)
-	UFUNCTION(BlueprintCallable, Category="Lobby")
+	UFUNCTION(BlueprintCallable, Category = "Lobby")
 	void ApplySlotDataToWorld(int32 SlotIndex);
+
+	void OnStartGameFired();
+
+	// Level to open when game starts (name of the map). Set in editor.
+	UPROPERTY(EditAnywhere, Category="Lobby|Start")
+	FName LevelToOpen;
 
     UFUNCTION(BlueprintCallable, Category="Lobby")
     ALobbySlotActor* GetSlotActor(int32 SlotIndex) const

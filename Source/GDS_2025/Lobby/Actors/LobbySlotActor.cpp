@@ -175,10 +175,6 @@ void ALobbySlotActor::UpdateFocusVisuals()
 	{
 		Scale *= ActiveScale;
 	}
-	if (bIsHovered)
-	{
-		Scale *= HoverScale;
-	}
 
 	SetActorScale3D(FVector(Scale));
 }

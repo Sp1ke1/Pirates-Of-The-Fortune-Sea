@@ -6,6 +6,7 @@
 #include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
 #include "GDS_2025/Lobby/Data/LobbySlotData.h"
 #include "GDS_2025/Lobby/Actors/LobbySlotActor.h"
+#include "Kismet/GameplayStatics.h"
 
 ALobbyGameMode::ALobbyGameMode()
 {
@@ -77,6 +78,24 @@ void ALobbyGameMode::ApplySlotDataToWorld(const int32 SlotIndex)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[LobbyGameMode] No SlotActor for slot %d. Place 4 actors and set SlotIndex 0..3."), SlotIndex);
 	}
+}
+
+void ALobbyGameMode::OnStartGameFired()
+{
+	UWorld* W = GetWorld();
+	if (!W)
+	{
+		return;
+	}
+
+	if (LevelToOpen.IsNone())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[LobbyGameMode] OnStartGameFired: LevelToOpen is not set."));
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[LobbyGameMode] Opening level %s"), *LevelToOpen.ToString());
+	UGameplayStatics::OpenLevel(this, LevelToOpen);
 }
 
 void ALobbyGameMode::OpenAssignControlUI(ALobbyPlayerController* RequestingPC, const int32 SlotIndex)

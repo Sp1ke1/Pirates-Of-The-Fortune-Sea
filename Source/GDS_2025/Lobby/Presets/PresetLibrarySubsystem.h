@@ -36,6 +36,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Presets|Query")
 	TArray<FGuid> GetAllPresetIds() const;
 
+	// Get only user-created presets (appearances)
+	UFUNCTION(BlueprintCallable, Category="Presets|Query")
+	TArray<FCharacterPresetRecord> GetUserPresets() const;
+
+	UFUNCTION(BlueprintCallable, Category="Presets|Query")
+	TArray<FGuid> GetUserPresetIds() const;
+
 	const FCharacterPresetRecord* FindPresetById(const FGuid& Id) const;
 
 	// -------------------------

@@ -107,6 +107,33 @@ TArray<FGuid> UPresetLibrarySubsystem::GetAllPresetIds() const
 	return Ids;
 }
 
+TArray<FCharacterPresetRecord> UPresetLibrarySubsystem::GetUserPresets() const
+{
+	TArray<FCharacterPresetRecord> Result;
+	
+	if (SaveObject)
+	{
+		Result = SaveObject->UserPresets;
+	}
+
+	return Result;
+}
+
+TArray<FGuid> UPresetLibrarySubsystem::GetUserPresetIds() const
+{
+	const TArray<FCharacterPresetRecord> UserPresets = GetUserPresets();
+
+	TArray<FGuid> Ids;
+	Ids.Reserve(UserPresets.Num());
+
+	for (const FCharacterPresetRecord& R : UserPresets)
+	{
+		Ids.Add(R.Id);
+	}
+
+	return Ids;
+}
+
 const FCharacterPresetRecord* UPresetLibrarySubsystem::FindPresetById(const FGuid& Id) const
 {
 	// Dev first

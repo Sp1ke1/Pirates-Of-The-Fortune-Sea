@@ -8,6 +8,7 @@
 class ULobbyDeviceRegistry;
 class UPresetPackDataAsset;
 class ALobbyPlayerController;
+class UCustomizationSlotDataAsset;
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnLobbySlotChangedNative, int32, const FLobbySlotData&);
 
@@ -34,6 +35,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	ULobbyDeviceRegistry* GetDeviceRegistry() const { return DeviceRegistry; }
 
+	// Customization slot data asset - configure available customization slots and items
+	UFUNCTION(BlueprintCallable, Category="Customization")
+	UCustomizationSlotDataAsset* GetCustomizationSlotDataAsset() const { return CustomizationSlotDataAsset; }
+
 	// Mutations (broadcast changes)
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	bool SetSlotControl(int32 SlotIndex, const FLobbyControlAssignment& NewControl);
@@ -55,8 +60,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Lobby|Control")
 	bool AssignPhysicalDeviceFromController(ALobbyPlayerController* RequestingPC, int32 SlotIndex);
 
-
 protected:
+	// Customization slot data asset - set this in Blueprint (EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Customization")
+	TObjectPtr<UCustomizationSlotDataAsset> CustomizationSlotDataAsset = nullptr;
+
 	// Developer default preset packs (DataAssets) -> fed into PresetLibrarySubsystem on Init.
 	UPROPERTY(EditDefaultsOnly, Category="Lobby|Presets")
 	TArray<TObjectPtr<UPresetPackDataAsset>> DefaultDevPresetPacks;

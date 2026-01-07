@@ -8,7 +8,7 @@ public class GDS_2025 : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "ApplicationCore" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "ApplicationCore", "UMG" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "ApplicationCore" });
 

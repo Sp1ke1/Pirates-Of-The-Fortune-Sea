@@ -56,6 +56,12 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="Customization")
 	FOnItemHovered OnItemHovered;
 
+	// Event dispatched when item is no longer hovered
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemUnhovered, int32, ItemIndex);
+
+	UPROPERTY(BlueprintAssignable, Category="Customization")
+	FOnItemUnhovered OnItemUnhovered;
+
 protected:
 	// Widget bindings (set in Blueprint)
 	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)

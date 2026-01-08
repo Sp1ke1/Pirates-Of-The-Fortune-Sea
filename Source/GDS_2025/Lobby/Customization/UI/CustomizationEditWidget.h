@@ -161,6 +161,13 @@ private:
 	
 	UFUNCTION()
 	void OnGridItemHovered(int32 ItemIndex);
+
+	UFUNCTION()
+	void OnGridItemUnhovered(int32 ItemIndex);
+
+	// Clear hovered item (call when mouse leaves grid area)
+	UFUNCTION(BlueprintCallable, Category="Customization")
+	void ClearHoveredItem();
 	
 	void ClearGrid();
 	void ApplyPreviewForSlot(int32 SlotIndex, int32 ItemIndex);

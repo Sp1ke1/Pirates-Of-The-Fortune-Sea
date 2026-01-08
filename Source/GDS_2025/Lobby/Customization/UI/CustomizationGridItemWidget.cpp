@@ -24,7 +24,12 @@ void UCustomizationGridItemWidget::NativeOnMouseEnter(const FGeometry& InGeometr
 void UCustomizationGridItemWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
 {
 	Super::NativeOnMouseLeave(InMouseEvent);
-	SetHovered(false);
+	
+	if (bIsHovered)
+	{
+		SetHovered(false);
+		OnItemUnhovered.Broadcast(ItemIndex);
+	}
 }
 
 void UCustomizationGridItemWidget::InitializeItem(const FCustomizationSlotItem& InItem, int32 InItemIndex)

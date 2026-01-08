@@ -256,6 +256,7 @@ void UCustomizationEditWidget::RefreshGrid()
 		// Bind events (dynamic delegates use AddDynamic)
 		ItemWidget->OnItemClicked.AddDynamic(this, &UCustomizationEditWidget::OnGridItemClicked);
 		ItemWidget->OnItemHovered.AddDynamic(this, &UCustomizationEditWidget::OnGridItemHovered);
+		ItemWidget->OnItemUnhovered.AddDynamic(this, &UCustomizationEditWidget::OnGridItemUnhovered);
 
 		// Set selected state
 		int32* SelectedIndex = SelectedItemIndices.Find(SelectedSlotIndex);
@@ -327,48 +328,37 @@ void UCustomizationEditWidget::RefreshTabs()
 
 void UCustomizationEditWidget::UpdatePreview()
 {
-	if (!PreviewActor || !SlotDataAsset || !SlotDataAsset->Slots.IsValidIndex(SelectedSlotIndex))
+	if (!PreviewActor || !SlotDataAsset)
 	{
 		return;
 	}
 
-	// Apply all selected items to preview
-	// For now, only apply the "Main Mesh" slot (slot 0 by convention)
-	// Material and other slots can be implemented later
-
-	// Find the "Main Mesh" slot (first slot by convention, or find by name)
-	int32 MainMeshSlotIndex = 0;
-	for (int32 i = 0; i < SlotDataAsset->Slots.Num(); ++i)
+	// If hovering an item in main mesh slot (slot 0), show that. Otherwise show selected item.
+	int32 PreviewItemIndex = INDEX_NONE;
+	const int32 MainMeshSlotIndex = 0; // Main mesh is always slot 0
+	
+	// Check if we're hovering an item in the main mesh slot
+	if (HoveredItemIndex != INDEX_NONE && SelectedSlotIndex == MainMeshSlotIndex)
 	{
-		// Check if this is the main mesh slot (you can customize this logic)
-		if (i == 0) // For now, assume first slot is main mesh
+		PreviewItemIndex = HoveredItemIndex;
+	}
+	else
+	{
+		// Use selected item
+		const int32* SelectedItemIndex = SelectedItemIndices.Find(MainMeshSlotIndex);
+		if (SelectedItemIndex && *SelectedItemIndex != INDEX_NONE)
 		{
-			MainMeshSlotIndex = i;
-			break;
+			PreviewItemIndex = *SelectedItemIndex;
 		}
 	}
 
-	const int32* SelectedItemIndex = SelectedItemIndices.Find(MainMeshSlotIndex);
-	if (!SelectedItemIndex || *SelectedItemIndex == INDEX_NONE)
+	if (PreviewItemIndex == INDEX_NONE || !SlotDataAsset->Slots.IsValidIndex(MainMeshSlotIndex))
 	{
 		return;
 	}
 
-	const FCustomizationSlotData& MainMeshSlot = SlotDataAsset->Slots[MainMeshSlotIndex];
-	if (!MainMeshSlot.Items.IsValidIndex(*SelectedItemIndex))
-	{
-		return;
-	}
-
-	const FCustomizationSlotItem& Item = MainMeshSlot.Items[*SelectedItemIndex];
-	if (Item.Mesh.IsValid() && PreviewActor->CharacterMesh)
-	{
-		USkeletalMesh* LoadedMesh = Item.Mesh.LoadSynchronous();
-		if (LoadedMesh)
-		{
-			PreviewActor->CharacterMesh->SetSkeletalMesh(LoadedMesh);
-		}
-	}
+	// Apply preview for main mesh slot
+	ApplyPreviewForSlot(MainMeshSlotIndex, PreviewItemIndex);
 }
 
 void UCustomizationEditWidget::OnGridItemClicked(int32 ItemIndex)
@@ -384,14 +374,29 @@ void UCustomizationEditWidget::OnGridItemClicked(int32 ItemIndex)
 		}
 	}
 
+	// Clear hover and show selected item
+	HoveredItemIndex = INDEX_NONE;
+	for (UCustomizationGridItemWidget* ItemWidget : GridItemWidgets)
+	{
+		if (ItemWidget)
+		{
+			ItemWidget->SetHovered(false);
+		}
+	}
+
 	UpdatePreview();
 }
 
 void UCustomizationEditWidget::OnGridItemHovered(int32 ItemIndex)
 {
+	if (HoveredItemIndex == ItemIndex)
+	{
+		return; // Already hovering this item
+	}
+
 	HoveredItemIndex = ItemIndex;
 
-	// Update hover state
+	// Update hover state for all items
 	for (UCustomizationGridItemWidget* ItemWidget : GridItemWidgets)
 	{
 		if (ItemWidget)
@@ -401,7 +406,44 @@ void UCustomizationEditWidget::OnGridItemHovered(int32 ItemIndex)
 	}
 
 	// Apply preview for hovered item (temporarily)
-	ApplyPreviewForSlot(SelectedSlotIndex, ItemIndex);
+	// Only apply preview for main mesh slot (slot 0), other slots can be added later
+	if (SelectedSlotIndex == 0)
+	{
+		ApplyPreviewForSlot(SelectedSlotIndex, ItemIndex);
+	}
+}
+
+void UCustomizationEditWidget::OnGridItemUnhovered(int32 ItemIndex)
+{
+	// Only clear hover if this was the currently hovered item
+	if (HoveredItemIndex == ItemIndex)
+	{
+		// Check if mouse moved to another item - if not, clear hover after a small delay
+		// For now, immediately clear and restore to selected
+		ClearHoveredItem();
+	}
+}
+
+void UCustomizationEditWidget::ClearHoveredItem()
+{
+	if (HoveredItemIndex == INDEX_NONE)
+	{
+		return;
+	}
+
+	HoveredItemIndex = INDEX_NONE;
+
+	// Clear hover state for all items
+	for (UCustomizationGridItemWidget* ItemWidget : GridItemWidgets)
+	{
+		if (ItemWidget)
+		{
+			ItemWidget->SetHovered(false);
+		}
+	}
+
+	// Restore preview to selected item
+	UpdatePreview();
 }
 
 void UCustomizationEditWidget::ClearGrid()

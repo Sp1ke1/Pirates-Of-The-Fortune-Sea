@@ -13,6 +13,7 @@ class UCustomizationGridItemWidget;
 class ACustomizationPreviewActor;
 class UCustomizationSlotDataAsset;
 class UPresetLibrarySubsystem;
+struct FStreamableHandle;
 class UTextBlock;
 
 /**
@@ -149,6 +150,9 @@ private:
 
 	// Whether we're creating a new preset or editing
 	bool bIsCreatingNew = true;
+
+	// Handle for async mesh loading (to cancel previous request if needed)
+	TSharedPtr<struct FStreamableHandle> MeshLoadHandle;
 
 	void LoadSlotData();
 	void RefreshGrid();

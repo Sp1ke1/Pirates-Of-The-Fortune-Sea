@@ -10,6 +10,9 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/PanelWidget.h"
 #include "Engine/GameInstance.h"
+#include "Engine/AssetManager.h"
+#include "Engine/StreamableManager.h"
+#include "UObject/SoftObjectPath.h"
 
 void UCustomizationEditWidget::NativeConstruct()
 {
@@ -51,9 +54,18 @@ void UCustomizationEditWidget::InitializeForNewPreset(ACustomizationPreviewActor
 	SelectedSlotIndex = 0;
 	HoveredItemIndex = INDEX_NONE;
 
+	UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] InitializeForNewPreset: PreviewActor=%p, SlotDataAsset=%p"), PreviewActor.Get(), SlotDataAsset.Get());
+	if (PreviewActor)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] InitializeForNewPreset: CharacterMesh=%p"), PreviewActor->CharacterMesh.Get());
+	}
+
 	LoadSlotData();
 	RefreshTabs();
 	RefreshGrid();
+	
+	// Initial preview update after setup
+	UpdatePreview();
 }
 
 void UCustomizationEditWidget::InitializeForEditPreset(ACustomizationPreviewActor* InPreviewActor, UCustomizationSlotDataAsset* InSlotDataAsset, const FGuid& PresetId)
@@ -76,9 +88,19 @@ void UCustomizationEditWidget::InitializeForEditPreset(ACustomizationPreviewActo
 		}
 	}
 
+	UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] InitializeForEditPreset: PreviewActor=%p, SlotDataAsset=%p, PresetId=%s"), 
+		PreviewActor.Get(), SlotDataAsset.Get(), *PresetId.ToString());
+	if (PreviewActor)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] InitializeForEditPreset: CharacterMesh=%p"), PreviewActor->CharacterMesh.Get());
+	}
+
 	LoadSlotData();
 	RefreshTabs();
 	RefreshGrid();
+	
+	// Initial preview update after setup
+	UpdatePreview();
 }
 
 void UCustomizationEditWidget::OnCancelButtonClicked()
@@ -358,7 +380,15 @@ void UCustomizationEditWidget::UpdatePreview()
 	}
 
 	// Apply preview for main mesh slot
-	ApplyPreviewForSlot(MainMeshSlotIndex, PreviewItemIndex);
+	if (PreviewItemIndex != INDEX_NONE)
+	{
+		UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] UpdatePreview: Applying preview for main mesh slot, item index %d"), PreviewItemIndex);
+		ApplyPreviewForSlot(MainMeshSlotIndex, PreviewItemIndex);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] UpdatePreview: No preview item index available"));
+	}
 }
 
 void UCustomizationEditWidget::OnGridItemClicked(int32 ItemIndex)
@@ -409,7 +439,12 @@ void UCustomizationEditWidget::OnGridItemHovered(int32 ItemIndex)
 	// Only apply preview for main mesh slot (slot 0), other slots can be added later
 	if (SelectedSlotIndex == 0)
 	{
+		UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] OnGridItemHovered: Applying preview for slot %d, item %d"), SelectedSlotIndex, ItemIndex);
 		ApplyPreviewForSlot(SelectedSlotIndex, ItemIndex);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] OnGridItemHovered: Slot %d is not main mesh (0), not applying preview"), SelectedSlotIndex);
 	}
 }
 
@@ -448,6 +483,13 @@ void UCustomizationEditWidget::ClearHoveredItem()
 
 void UCustomizationEditWidget::ClearGrid()
 {
+	// Cancel any pending mesh load
+	if (MeshLoadHandle.IsValid())
+	{
+		MeshLoadHandle->CancelHandle();
+		MeshLoadHandle.Reset();
+	}
+
 	for (TObjectPtr<UCustomizationGridItemWidget>& ItemWidget : GridItemWidgets)
 	{
 		if (ItemWidget)
@@ -460,26 +502,107 @@ void UCustomizationEditWidget::ClearGrid()
 
 void UCustomizationEditWidget::ApplyPreviewForSlot(int32 SlotIndex, int32 ItemIndex)
 {
-	if (!PreviewActor || !SlotDataAsset || !SlotDataAsset->Slots.IsValidIndex(SlotIndex))
+	if (!PreviewActor)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: PreviewActor is null"));
+		return;
+	}
+
+	if (!SlotDataAsset)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: SlotDataAsset is null"));
+		return;
+	}
+
+	if (!SlotDataAsset->Slots.IsValidIndex(SlotIndex))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Invalid slot index %d"), SlotIndex);
 		return;
 	}
 
 	const FCustomizationSlotData& SlotData = SlotDataAsset->Slots[SlotIndex];
 	if (!SlotData.Items.IsValidIndex(ItemIndex))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Invalid item index %d for slot %d"), ItemIndex, SlotIndex);
 		return;
 	}
 
 	const FCustomizationSlotItem& Item = SlotData.Items[ItemIndex];
 
 	// For main mesh slot (index 0), apply mesh
-	if (SlotIndex == 0 && Item.Mesh.IsValid() && PreviewActor->CharacterMesh)
+	if (SlotIndex == 0 && PreviewActor && PreviewActor->CharacterMesh)
 	{
-		USkeletalMesh* LoadedMesh = Item.Mesh.LoadSynchronous();
-		if (LoadedMesh)
+		// Cancel any pending load request
+		if (MeshLoadHandle.IsValid())
 		{
-			PreviewActor->CharacterMesh->SetSkeletalMesh(LoadedMesh);
+			MeshLoadHandle->CancelHandle();
+			MeshLoadHandle.Reset();
+		}
+
+		const FSoftObjectPath MeshPath = Item.Mesh.ToSoftObjectPath();
+		
+		// Check if mesh is already loaded
+		if (USkeletalMesh* AlreadyLoaded = Item.Mesh.Get())
+		{
+			UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Mesh already loaded, applying immediately for slot %d, item %d"), SlotIndex, ItemIndex);
+			PreviewActor->CharacterMesh->SetSkeletalMesh(AlreadyLoaded);
+		}
+		// Check if path is valid for async loading
+		else if (MeshPath.IsValid())
+		{
+			UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Starting async load for slot %d, item %d"), SlotIndex, ItemIndex);
+			
+			// Store weak references for the callback
+			TWeakObjectPtr<USkeletalMeshComponent> WeakMeshComp = PreviewActor->CharacterMesh;
+			
+			// Request async load
+			FStreamableManager& Streamable = UAssetManager::GetStreamableManager();
+			MeshLoadHandle = Streamable.RequestAsyncLoad(MeshPath, FStreamableDelegate::CreateLambda([WeakMeshComp, MeshPath]() {
+				if (!WeakMeshComp.IsValid())
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: MeshComp became invalid during async load"));
+					return;
+				}
+
+				UObject* LoadedObject = MeshPath.ResolveObject();
+				if (!LoadedObject)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Failed to resolve object after async load"));
+					return;
+				}
+
+				if (USkeletalMesh* LoadedMesh = Cast<USkeletalMesh>(LoadedObject))
+				{
+					if (USkeletalMeshComponent* MeshCompPtr = WeakMeshComp.Get())
+					{
+						UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Mesh loaded asynchronously, applying to CharacterMesh"));
+						MeshCompPtr->SetSkeletalMesh(LoadedMesh);
+					}
+				}
+				else
+				{
+					UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Loaded object is not a USkeletalMesh"));
+				}
+			}));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Item.Mesh path is not valid for slot %d, item %d"), SlotIndex, ItemIndex);
+		}
+	}
+	else
+	{
+		if (SlotIndex != 0)
+		{
+			UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: Slot %d is not main mesh slot (0), skipping"), SlotIndex);
+		}
+		else if (!PreviewActor)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: PreviewActor is null"));
+		}
+		else if (!PreviewActor->CharacterMesh)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] ApplyPreviewForSlot: PreviewActor->CharacterMesh is null"));
 		}
 	}
 	// For material slot and others, can be implemented later

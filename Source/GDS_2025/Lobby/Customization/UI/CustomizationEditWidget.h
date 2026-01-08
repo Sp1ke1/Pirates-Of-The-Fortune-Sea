@@ -27,6 +27,7 @@ class UCustomizationEditWidget : public UUserWidget
 
 public:
 	virtual void NativeConstruct() override;
+	virtual FReply NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
 	virtual void NativeDestruct() override;
 
 	// Initialize widget for creating a new preset
@@ -67,12 +68,6 @@ public:
 	// Get current preset name (if editing) or empty (if creating new)
 	UFUNCTION(BlueprintCallable, Category="Customization")
 	FText GetCurrentPresetName() const;
-
-	// Handler for tab button clicks
-	// Note: In Blueprint, bind each button directly to SelectSlot with the appropriate index
-	// This function is a fallback that tries to find the clicked button
-	UFUNCTION()
-	void OnTabButtonClicked();
 
 	// Event dispatched when editing is cancelled
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnEditCancelled);
@@ -120,6 +115,15 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, Category="Customization")
 	void BP_SetupTabButton(UButton* TabButton, int32 SlotIndex, bool bIsSelected);
 
+	// Get slot index for a tab button (useful for OnClicked bindings in Blueprint)
+	UFUNCTION(BlueprintCallable, Category="Customization")
+	int32 GetSlotIndexForTabButton(UButton* TabButton) const;
+
+	// Select slot by tab button (useful for direct OnClicked binding)
+	// Call this from Blueprint: Bind TabButton->OnClicked to this function
+	UFUNCTION(BlueprintCallable, Category="Customization")
+	void SelectSlotByTabButton(UButton* TabButton);
+
 private:
 	UPROPERTY()
 	TObjectPtr<ACustomizationPreviewActor> PreviewActor = nullptr;
@@ -141,6 +145,13 @@ private:
 
 	// Map of slot index -> tab button
 	TMap<int32, TObjectPtr<UButton>> TabButtons;
+
+	// Map of tab button -> slot index (for OnClicked handler)
+	TMap<TObjectPtr<UButton>, int32> TabButtonSlotIndexMap;
+	
+	// Temporary storage for clicked button (used by OnTabButtonClickedDynamic)
+	UPROPERTY()
+	TObjectPtr<UButton> ClickedTabButtonForHandler = nullptr;
 
 	// Current grid item widgets (for cleanup)
 	TArray<TObjectPtr<UCustomizationGridItemWidget>> GridItemWidgets;
@@ -168,6 +179,10 @@ private:
 
 	UFUNCTION()
 	void OnGridItemUnhovered(int32 ItemIndex);
+
+	// Handler for tab button clicks (dynamic delegate, finds SlotIndex from button)
+	UFUNCTION()
+	void OnTabButtonClickedDynamic();
 
 	// Clear hovered item (call when mouse leaves grid area)
 	UFUNCTION(BlueprintCallable, Category="Customization")

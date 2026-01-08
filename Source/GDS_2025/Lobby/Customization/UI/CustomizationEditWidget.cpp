@@ -13,15 +13,12 @@
 #include "Engine/AssetManager.h"
 #include "Engine/StreamableManager.h"
 #include "UObject/SoftObjectPath.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Input/Events.h"
 
 void UCustomizationEditWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-
-	if (UGameInstance* GI = GetGameInstance())
-	{
-		PresetLibrary = GI->GetSubsystem<UPresetLibrarySubsystem>();
-	}
 
 	if (CancelButton)
 	{
@@ -32,6 +29,39 @@ void UCustomizationEditWidget::NativeConstruct()
 	{
 		SaveButton->OnClicked.AddDynamic(this, &UCustomizationEditWidget::OnSaveButtonClicked);
 	}
+
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		PresetLibrary = GI->GetSubsystem<UPresetLibrarySubsystem>();
+	}
+}
+
+FReply UCustomizationEditWidget::NativeOnMouseButtonDown(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
+{
+	// Track mouse down to identify which button will be clicked
+	// This is a workaround to identify button in OnTabButtonClickedDynamic
+	// We'll check which tab button is hovered (which one is under the cursor)
+	
+	if (InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+	{
+		// Find which tab button is currently hovered
+		// When mouse is clicked, the button under cursor should be in hovered state
+		UButton* FoundButton = nullptr;
+		for (const auto& Pair : TabButtons)
+		{
+			if (Pair.Value && Pair.Value->IsHovered())
+			{
+				FoundButton = Pair.Value;
+				UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] NativeOnMouseButtonDown: Found hovered button for slot %d"), Pair.Key);
+				break;
+			}
+		}
+		
+		// Store the button that will be clicked
+		ClickedTabButtonForHandler = FoundButton;
+	}
+
+	return Super::NativeOnMouseButtonDown(InGeometry, InMouseEvent);
 }
 
 void UCustomizationEditWidget::NativeDestruct()
@@ -174,10 +204,25 @@ void UCustomizationEditWidget::SelectSlot(int32 SlotIndex)
 		return;
 	}
 
+	// Don't do anything if already selected this slot
+	if (SelectedSlotIndex == SlotIndex)
+	{
+		return;
+	}
+
 	SelectedSlotIndex = SlotIndex;
 	HoveredItemIndex = INDEX_NONE;
+	
+	// Clear hover when switching slots
+	ClearHoveredItem();
+	
+	// Update tabs to show correct selected state
 	RefreshTabs();
+	
+	// Refresh grid to show items for the new slot
 	RefreshGrid();
+	
+	// Update preview with selected item from new slot
 	UpdatePreview();
 }
 
@@ -213,12 +258,39 @@ void UCustomizationEditWidget::NavigateToNextSlot()
 	SelectSlot(NewIndex);
 }
 
-void UCustomizationEditWidget::OnTabButtonClicked()
+void UCustomizationEditWidget::OnTabButtonClickedDynamic()
 {
-	// This is a fallback - in Blueprint, bind each button directly to SelectSlot with index
-	// For C++ fallback, we can't easily determine which button was clicked from OnClicked
-	// So this function is mostly a placeholder
-	// In Blueprint implementation, bind: TabButton->OnClicked->SelectSlot(SlotIndex)
+	// Use the button reference stored in NativeOnMouseButtonDown
+	if (ClickedTabButtonForHandler)
+	{
+		const int32* SlotIndexPtr = TabButtonSlotIndexMap.Find(ClickedTabButtonForHandler);
+		if (SlotIndexPtr)
+		{
+			UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] OnTabButtonClickedDynamic: Button clicked, selecting slot %d"), *SlotIndexPtr);
+			SelectSlot(*SlotIndexPtr);
+			ClickedTabButtonForHandler = nullptr; // Clear after use
+			return;
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] OnTabButtonClickedDynamic: Button found but SlotIndex not in map"));
+		}
+	}
+	
+	// Fallback: Try to find button by checking all buttons' hover state
+	// This is less reliable but may work if NativeOnMouseButtonDown didn't catch it
+	for (const auto& Pair : TabButtons)
+	{
+		if (Pair.Value && Pair.Value->IsHovered())
+		{
+			UE_LOG(LogTemp, Log, TEXT("[CustomizationEditWidget] OnTabButtonClickedDynamic: Fallback - using hovered button for slot %d"), Pair.Key);
+			SelectSlot(Pair.Key);
+			return;
+		}
+	}
+	
+	// Last resort: log warning
+	UE_LOG(LogTemp, Warning, TEXT("[CustomizationEditWidget] OnTabButtonClickedDynamic: Could not identify clicked button"));
 }
 
 void UCustomizationEditWidget::LoadSlotData()
@@ -311,7 +383,21 @@ void UCustomizationEditWidget::RefreshTabs()
 		return;
 	}
 
-	// Clear existing buttons
+	// If buttons already exist, just update their visual state
+	if (TabButtons.Num() > 0 && TabButtons.Num() == SlotDataAsset->Slots.Num())
+	{
+		// Update existing buttons' selected state
+		for (const auto& Pair : TabButtons)
+		{
+			if (Pair.Value)
+			{
+				BP_SetupTabButton(Pair.Value, Pair.Key, SelectedSlotIndex == Pair.Key);
+			}
+		}
+		return;
+	}
+
+	// Clear existing buttons (if any)
 	for (auto& Pair : TabButtons)
 	{
 		if (Pair.Value)
@@ -319,7 +405,10 @@ void UCustomizationEditWidget::RefreshTabs()
 			Pair.Value->RemoveFromParent();
 		}
 	}
-	TabButtons.Empty();
+		TabButtons.Empty();
+
+	// Clear button to slot index map
+	TabButtonSlotIndexMap.Empty();
 
 	// Create tab buttons
 	for (int32 SlotIndex = 0; SlotIndex < SlotDataAsset->Slots.Num(); ++SlotIndex)
@@ -333,18 +422,74 @@ void UCustomizationEditWidget::RefreshTabs()
 			TabButton = NewObject<UButton>(this);
 		}
 
-		// Setup button
-		BP_SetupTabButton(TabButton, SlotIndex, SelectedSlotIndex == SlotIndex);
+		// Store the SlotIndex in a map for the handler to lookup
+		const int32 CapturedSlotIndex = SlotIndex;
+		TabButtonSlotIndexMap.Add(TabButton, CapturedSlotIndex);
+		
+		// Bind OnClicked - FOnButtonClickedEvent is a dynamic delegate, so we must use AddDynamic
+		// Since AddDynamic doesn't support lambdas, we need a workaround to pass SlotIndex
+		// Solution: Override NativeOnMouseButtonDown in a custom button widget to store button reference
+		// Or use a member variable to track the last clicked button
+		// For now, we'll bind and handle in OnTabButtonClickedDynamic
+		
+		// We'll store button reference using NativeOnMouseButtonDown override
+		// But since we're using standard UButton, we'll use a workaround:
+		// Create a wrapper that captures the button before binding
+		TabButton->OnClicked.AddDynamic(this, &UCustomizationEditWidget::OnTabButtonClickedDynamic);
+		
+		// Store button reference for handler lookup - we'll set it via NativeOnMouseButtonDown
+		// But since we can't override UButton, we'll use a different approach
+		// For now, we'll try to identify button in handler using other means
 
-		// Note: For proper slot identification, bind in Blueprint:
-		// Each tab button should call SelectSlot with its slot index directly in BP_SetupTabButton
+		// Setup button (for visual state updates only)
+		BP_SetupTabButton(TabButton, SlotIndex, SelectedSlotIndex == SlotIndex);
 
 		// Add button to container
 		if (TabButtonsContainer)
 		{
 			TabButtonsContainer->AddChild(TabButton);
 		}
-		TabButtons.Add(SlotIndex, TabButton);
+			TabButtons.Add(SlotIndex, TabButton);
+	}
+}
+
+int32 UCustomizationEditWidget::GetSlotIndexForTabButton(UButton* TabButton) const
+{
+	if (!TabButton)
+	{
+		return INDEX_NONE;
+	}
+
+	// Search for the button in our map
+	const int32* SlotIndexPtr = TabButtonSlotIndexMap.Find(TabButton);
+	if (SlotIndexPtr)
+	{
+		return *SlotIndexPtr;
+	}
+
+	// Fallback: Search in TabButtons map
+	for (const auto& Pair : TabButtons)
+	{
+		if (Pair.Value == TabButton)
+		{
+			return Pair.Key;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+void UCustomizationEditWidget::SelectSlotByTabButton(UButton* TabButton)
+{
+	if (!TabButton)
+	{
+		return;
+	}
+
+	const int32 SlotIndex = GetSlotIndexForTabButton(TabButton);
+	if (SlotIndex != INDEX_NONE)
+	{
+		SelectSlot(SlotIndex);
 	}
 }
 

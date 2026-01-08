@@ -9,11 +9,6 @@
 void UCustomizationMainMenuWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
-
-	if (UGameInstance* GI = GetGameInstance())
-	{
-		PresetLibrary = GI->GetSubsystem<UPresetLibrarySubsystem>();
-	}
 }
 
 void UCustomizationMainMenuWidget::NativeDestruct()
@@ -26,6 +21,11 @@ void UCustomizationMainMenuWidget::NativeDestruct()
 void UCustomizationMainMenuWidget::InitializeWidget(ACustomizationPreviewActor* InPreviewActor)
 {
 	PreviewActor = InPreviewActor;
+
+	if (UGameInstance* GI = GetGameInstance())
+	{
+		PresetLibrary = GI->GetSubsystem<UPresetLibrarySubsystem>();
+	}
 	RefreshPresetList();
 	UpdateUIState();
 }
@@ -117,6 +117,11 @@ FText UCustomizationMainMenuWidget::GetCurrentPresetName() const
 	}
 
 	return FText::GetEmpty();
+}
+
+bool UCustomizationMainMenuWidget::HasPresets() const
+{
+	return UserPresetIds.Num() > 0;
 }
 
 void UCustomizationMainMenuWidget::UpdateUIState()

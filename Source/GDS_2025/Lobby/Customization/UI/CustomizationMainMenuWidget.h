@@ -51,6 +51,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Customization")
 	FText GetCurrentPresetName() const;
 
+	// Check if there are any presets available
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Customization")
+	bool HasPresets() const;
+
 	// Update UI state (called when preset list changes or selection changes)
 	UFUNCTION(BlueprintCallable, Category="Customization")
 	void UpdateUIState();

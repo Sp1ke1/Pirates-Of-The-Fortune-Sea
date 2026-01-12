@@ -6,6 +6,7 @@
 
 class USceneComponent;
 class USkeletalMeshComponent;
+class UCharacterPresetApplierComponent;
 
 /**
  * Actor used on customization map to display the current selected preset/appearance
@@ -24,11 +25,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Customization|Components")
 	TObjectPtr<USkeletalMeshComponent> CharacterMesh = nullptr;
 
+	// Component for applying character presets
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Customization|Components")
+	TObjectPtr<UCharacterPresetApplierComponent> PresetApplierComponent = nullptr;
+
 	// Apply a preset to the character mesh
 	UFUNCTION(BlueprintCallable, Category="Customization")
 	void ApplyPresetById(const FGuid& PresetId);
-
-private:
-	void UpdateMeshFromPreset(const FGuid& PresetId);
 };
 

@@ -29,6 +29,14 @@ void ALobbyPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// IMPORTANT: Set input mode to allow both game and UI input
+	FInputModeGameAndUI InputMode;
+	InputMode.SetHideCursorDuringCapture(false);
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(InputMode);
+	
+	SetShowMouseCursor(true);
+
 	CacheLobbyRefs();
 	AddLobbyMappingContext();
 
@@ -45,6 +53,8 @@ void ALobbyPlayerController::BeginPlay()
 			break;
 		}
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("[LobbyPC] BeginPlay completed. InputMode set to GameAndUI, MouseCursor visible: %d"), bShowMouseCursor);
 }
 
 void ALobbyPlayerController::CacheLobbyRefs()
@@ -66,7 +76,7 @@ void ALobbyPlayerController::AddLobbyMappingContext()
 {
 	if (!LobbyMappingContext)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] LobbyMappingContext is not set (IMC_Lobby)."));
+		UE_LOG(LogTemp, Error, TEXT("[LobbyPC] LobbyMappingContext is not set (IMC_Lobby). Assign it in Blueprint or C++ default properties."));
 		return;
 	}
 
@@ -76,7 +86,16 @@ void ALobbyPlayerController::AddLobbyMappingContext()
 		if (UEnhancedInputLocalPlayerSubsystem* Subsys = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
 		{
 			Subsys->AddMappingContext(LobbyMappingContext, LobbyMappingPriority);
+			UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Added LobbyMappingContext with priority %d"), LobbyMappingPriority);
 		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("[LobbyPC] Failed to get UEnhancedInputLocalPlayerSubsystem. Enhanced Input may not be properly initialized."));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] No LocalPlayer found. Cannot add mapping context."));
 	}
 }
 
@@ -88,26 +107,90 @@ void ALobbyPlayerController::SetupInputComponent()
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent);
 	if (!EIC)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[LobbyPC] InputComponent is not UEnhancedInputComponent. Ensure Enhanced Input is enabled."));
+		UE_LOG(LogTemp, Error, TEXT("[LobbyPC] InputComponent is not UEnhancedInputComponent. Check Project Settings -> Input -> Default Player Input Class is set to EnhancedPlayerInput."));
 		return;
 	}
 
+	UE_LOG(LogTemp, Log, TEXT("[LobbyPC] SetupInputComponent: Binding Enhanced Input Actions..."));
+
 	// Bind actions (Triggered is usually fine for buttons; Started is also OK)
-	if (IA_FocusLeft)  EIC->BindAction(IA_FocusLeft, ETriggerEvent::Started, this, &ALobbyPlayerController::OnFocusLeft);
-	if (IA_FocusRight) EIC->BindAction(IA_FocusRight, ETriggerEvent::Started, this, &ALobbyPlayerController::OnFocusRight);
+	int32 BoundCount = 0;
 
-	if (IA_Confirm)    EIC->BindAction(IA_Confirm, ETriggerEvent::Started, this, &ALobbyPlayerController::OnConfirm);
-	if (IA_Cancel)     EIC->BindAction(IA_Cancel, ETriggerEvent::Started, this, &ALobbyPlayerController::OnCancel);
+	if (IA_FocusLeft)
+	{
+		EIC->BindAction(IA_FocusLeft, ETriggerEvent::Started, this, &ALobbyPlayerController::OnFocusLeft);
+		BoundCount++;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_FocusLeft"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_FocusLeft is NULL - not bound!")); }
 
-	if (IA_SkinPrev)   EIC->BindAction(IA_SkinPrev, ETriggerEvent::Started, this, &ALobbyPlayerController::OnSkinPrev);
-	if (IA_SkinNext)   EIC->BindAction(IA_SkinNext, ETriggerEvent::Started, this, &ALobbyPlayerController::OnSkinNext);
+	if (IA_FocusRight)
+	{
+		EIC->BindAction(IA_FocusRight, ETriggerEvent::Started, this, &ALobbyPlayerController::OnFocusRight);
+		BoundCount++;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_FocusRight"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_FocusRight is NULL - not bound!")); }
 
-	if (IA_LobbyStartGame) EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Started, this, &ALobbyPlayerController::StartHoldStartGame);
-	if (IA_LobbyStartGame) EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Completed, this, &ALobbyPlayerController::StopHoldStartGame);
-	if (IA_LobbyStartGame) EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Canceled, this, &ALobbyPlayerController::StopHoldStartGame);
+	if (IA_Confirm)
+	{
+		EIC->BindAction(IA_Confirm, ETriggerEvent::Started, this, &ALobbyPlayerController::OnConfirm);
+		BoundCount++;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_Confirm"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_Confirm is NULL - not bound!")); }
 
-	if (IA_ControlUp)   EIC->BindAction(IA_ControlUp,   ETriggerEvent::Started, this, &ALobbyPlayerController::OnControlUp);
-	if (IA_ControlDown) EIC->BindAction(IA_ControlDown, ETriggerEvent::Started, this, &ALobbyPlayerController::OnControlDown);
+	if (IA_Cancel)
+	{
+		EIC->BindAction(IA_Cancel, ETriggerEvent::Started, this, &ALobbyPlayerController::OnCancel);
+		BoundCount++;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_Cancel"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_Cancel is NULL - not bound!")); }
+
+	if (IA_SkinPrev)
+	{
+		EIC->BindAction(IA_SkinPrev, ETriggerEvent::Started, this, &ALobbyPlayerController::OnSkinPrev);
+		BoundCount++;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_SkinPrev"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_SkinPrev is NULL - not bound!")); }
+
+	if (IA_SkinNext)
+	{
+		EIC->BindAction(IA_SkinNext, ETriggerEvent::Started, this, &ALobbyPlayerController::OnSkinNext);
+		BoundCount++;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_SkinNext"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_SkinNext is NULL - not bound!")); }
+
+	if (IA_LobbyStartGame)
+	{
+		EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Started, this, &ALobbyPlayerController::StartHoldStartGame);
+		EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Completed, this, &ALobbyPlayerController::StopHoldStartGame);
+		EIC->BindAction(IA_LobbyStartGame, ETriggerEvent::Canceled, this, &ALobbyPlayerController::StopHoldStartGame);
+		BoundCount += 3;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_LobbyStartGame (Started/Completed/Canceled)"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_LobbyStartGame is NULL - not bound!")); }
+
+	if (IA_ControlUp)
+	{
+		EIC->BindAction(IA_ControlUp, ETriggerEvent::Started, this, &ALobbyPlayerController::OnControlUp);
+		BoundCount++;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_ControlUp"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_ControlUp is NULL - not bound!")); }
+
+	if (IA_ControlDown)
+	{
+		EIC->BindAction(IA_ControlDown, ETriggerEvent::Started, this, &ALobbyPlayerController::OnControlDown);
+		BoundCount++;
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Bound IA_ControlDown"));
+	}
+	else { UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] IA_ControlDown is NULL - not bound!")); }
+
+	UE_LOG(LogTemp, Log, TEXT("[LobbyPC] SetupInputComponent completed. Total actions bound: %d"), BoundCount);
 }
 
 int32 ALobbyPlayerController::WrapSlotIndex(const int32 Index) const
@@ -204,25 +287,36 @@ void ALobbyPlayerController::SetFocusedSlotIndex(const int32 NewIndex)
 
 void ALobbyPlayerController::OnFocusLeft(const FInputActionValue& Value)
 {
+	UE_LOG(LogTemp, VeryVerbose, TEXT("[LobbyPC] OnFocusLeft triggered"));
 	// Boolean actions: Value.Get<bool>() is fine, but Started already implies pressed.
 	SetFocusedSlotIndex(FocusedSlotIndex - 1);
 }
 
 void ALobbyPlayerController::OnFocusRight(const FInputActionValue& Value)
 {
+	UE_LOG(LogTemp, VeryVerbose, TEXT("[LobbyPC] OnFocusRight triggered"));
 	SetFocusedSlotIndex(FocusedSlotIndex + 1);
 }
 
 void ALobbyPlayerController::OnConfirm(const FInputActionValue& Value)
 {
+	UE_LOG(LogTemp, Log, TEXT("[LobbyPC] OnConfirm triggered for slot %d"), FocusedSlotIndex);
 	CacheLobbyRefs();
-	if (!LobbyGI) return;
+	if (!LobbyGI)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] OnConfirm: LobbyGI is null!"));
+		return;
+	}
 
 	// Assign the physical device that triggered this PlayerController to the focused slot.
 	const bool bAssigned = LobbyGI->AssignPhysicalDeviceFromController(this, FocusedSlotIndex);
 	if (!bAssigned)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[LobbyPC] Failed to assign physical device to slot %d"), FocusedSlotIndex);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Successfully assigned device to slot %d"), FocusedSlotIndex);
 	}
 }
 

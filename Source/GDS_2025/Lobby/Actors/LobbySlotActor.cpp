@@ -1,5 +1,7 @@
 #include "GDS_2025/Lobby/Actors/LobbySlotActor.h"
 #include "GDS_2025/Lobby/Presets/PresetLibrarySubsystem.h"
+#include "GDS_2025/Lobby/Presets/CharacterPresetRecord.h"
+#include "GDS_2025/Lobby/Components/CharacterPresetApplierComponent.h"
 #include "Engine/GameInstance.h"
 #include "Components/SceneComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -26,6 +28,9 @@ ALobbySlotActor::ALobbySlotActor()
 
 	CharacterMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CharacterMesh"));
 	CharacterMesh->SetupAttachment(Root);
+
+	// Create preset applier component (can be replaced with child class in Blueprint)
+	PresetApplierComponent = CreateDefaultSubobject<UCharacterPresetApplierComponent>(TEXT("PresetApplierComponent"));
 
 	ChangeText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("ChangeText"));
 	ChangeText->SetupAttachment(Root);
@@ -96,6 +101,16 @@ ALobbySlotActor::ALobbySlotActor()
 	DownLabel->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
 	DownLabel->SetText(FText::FromString(TEXT("Control Down (DownArrow / S)")));
 	DownLabel->SetWorldSize(14.f);
+
+	// Preset name display - positioned above the character mesh
+	PresetNameText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("PresetNameText"));
+	PresetNameText->SetupAttachment(Root);
+	PresetNameText->SetRelativeLocation(FVector(0.f, 60.f, 180.f));
+	PresetNameText->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
+	PresetNameText->SetText(FText::FromString(TEXT("No Preset")));
+	PresetNameText->SetWorldSize(32.f);
+	PresetNameText->SetTextRenderColor(FColor::Yellow);
+	PresetNameText->SetVerticalAlignment(EVerticalTextAligment::EVRTA_TextCenter);
 
 	// Allow traces for hover
 	CharacterMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
@@ -188,15 +203,42 @@ void ALobbySlotActor::ApplyData(const FLobbySlotData& Data)
 		}
 	}
 
-	// Apply preset mesh
-	if (CharacterMesh)
+	// Apply preset using component and update preset name
+	if (PresetApplierComponent && PresetNameText)
 	{
 		if (UGameInstance* GI = GetGameInstance())
 		{
 			if (UPresetLibrarySubsystem* Lib = GI->GetSubsystem<UPresetLibrarySubsystem>())
 			{
-				Lib->ApplyPresetToMeshById(Data.SelectedPresetId, CharacterMesh);
+				// Apply preset using component (can be overridden in Blueprint)
+				PresetApplierComponent->ApplyPresetById(Data.SelectedPresetId);
+
+				// Update preset name text
+				if (Data.SelectedPresetId.IsValid())
+				{
+					const FCharacterPresetRecord* PresetRecord = Lib->FindPresetById(Data.SelectedPresetId);
+					if (PresetRecord && !PresetRecord->DisplayName.IsEmpty())
+					{
+						PresetNameText->SetText(PresetRecord->DisplayName);
+					}
+					else
+					{
+						PresetNameText->SetText(FText::FromString(TEXT("Unknown Preset")));
+					}
+				}
+				else
+				{
+					PresetNameText->SetText(FText::FromString(TEXT("No Preset")));
+				}
 			}
+			else
+			{
+				PresetNameText->SetText(FText::FromString(TEXT("No Preset")));
+			}
+		}
+		else if (PresetNameText)
+		{
+			PresetNameText->SetText(FText::FromString(TEXT("No Preset")));
 		}
 	}
 }

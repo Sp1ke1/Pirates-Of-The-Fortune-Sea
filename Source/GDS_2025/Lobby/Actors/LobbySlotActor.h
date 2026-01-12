@@ -10,6 +10,7 @@ class USkeletalMeshComponent;
 class UTextRenderComponent;
 class UStaticMeshComponent;
 class USkeletalMesh;
+class UCharacterPresetApplierComponent;
 
 
 UCLASS()
@@ -31,6 +32,10 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<USkeletalMeshComponent> CharacterMesh = nullptr;
+
+	// Component for applying character presets
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UCharacterPresetApplierComponent> PresetApplierComponent = nullptr;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<UTextRenderComponent> ChangeText = nullptr;
@@ -65,6 +70,10 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
 	TObjectPtr<UTextRenderComponent> DownLabel = nullptr;
+
+	// Display name of the selected preset
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Lobby|Components")
+	TObjectPtr<UTextRenderComponent> PresetNameText = nullptr;
 
 	UFUNCTION(BlueprintCallable, Category="Lobby")
 	void ApplyData(const FLobbySlotData& Data);

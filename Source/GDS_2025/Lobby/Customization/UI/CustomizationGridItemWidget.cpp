@@ -42,6 +42,26 @@ void UCustomizationGridItemWidget::InitializeItem(const FCustomizationSlotItem& 
 		ItemNameText->SetText(Item.DisplayName);
 	}
 
+	// Update paid icon visibility
+	if (PaidIcon)
+	{
+		PaidIcon->SetVisibility(Item.bIsPaid ? ESlateVisibility::Visible : ESlateVisibility::Collapsed);
+	}
+
+	// Update price text
+	if (PriceText)
+	{
+		if (Item.bIsPaid && Item.Price > 0)
+		{
+			PriceText->SetText(FText::AsNumber(Item.Price));
+			PriceText->SetVisibility(ESlateVisibility::Visible);
+		}
+		else
+		{
+			PriceText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+
 	UpdateVisualState();
 }
 

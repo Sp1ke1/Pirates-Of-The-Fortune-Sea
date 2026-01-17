@@ -24,6 +24,14 @@ struct FCustomizationSlotItem
 	// Material for this item (used for "Material" slot)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Customization", meta=(AllowedClasses="Material,MaterialInstance"))
 	TSoftObjectPtr<UMaterialInterface> Material;
+
+	// Is this item paid/premium (requires purchase)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Customization|Purchase")
+	bool bIsPaid = false;
+
+	// Price for this item (in game currency or real money, depending on your system)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Customization|Purchase")
+	int32 Price = 0;
 };
 
 /**

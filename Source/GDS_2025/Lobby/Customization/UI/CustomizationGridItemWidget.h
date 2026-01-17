@@ -77,6 +77,14 @@ protected:
 	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
 	TObjectPtr<UImage> ItemImage = nullptr;
 
+	// Optional: icon to show for paid items (can be set up in Blueprint)
+	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
+	TObjectPtr<UImage> PaidIcon = nullptr;
+
+	// Optional: text to show price (can be set up in Blueprint)
+	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
+	TObjectPtr<UTextBlock> PriceText = nullptr;
+
 	UFUNCTION(BlueprintCallable, Category="Customization")
 	void OnItemButtonClicked();
 

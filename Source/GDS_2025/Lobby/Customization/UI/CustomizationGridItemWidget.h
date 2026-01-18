@@ -44,6 +44,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Customization")
 	int32 GetItemIndex() const { return ItemIndex; }
 
+	// Check if this item is paid/premium
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Customization")
+	bool IsPaid() const { return Item.bIsPaid; }
+
+	// Get the price of this item
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Customization")
+	int32 GetPrice() const { return Item.Price; }
+
 	// Event dispatched when item is clicked
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemClicked, int32, ItemIndex);
 
@@ -76,14 +84,6 @@ protected:
 	// Optional: image to show mesh preview (can be set up in Blueprint)
 	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
 	TObjectPtr<UImage> ItemImage = nullptr;
-
-	// Optional: icon to show for paid items (can be set up in Blueprint)
-	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
-	TObjectPtr<UImage> PaidIcon = nullptr;
-
-	// Optional: text to show price (can be set up in Blueprint)
-	UPROPERTY(meta = (BindWidget), BlueprintReadOnly)
-	TObjectPtr<UTextBlock> PriceText = nullptr;
 
 	UFUNCTION(BlueprintCallable, Category="Customization")
 	void OnItemButtonClicked();

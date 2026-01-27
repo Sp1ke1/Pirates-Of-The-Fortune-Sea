@@ -54,6 +54,7 @@ public:
 	void OnBuyButtonClicked();
 
 	// Event dispatched when back button is clicked
+	// Note: Main widget automatically handles this in C++, but event is still available for Blueprint
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBackClicked);
 
 	UPROPERTY(BlueprintAssignable, Category="Shop")

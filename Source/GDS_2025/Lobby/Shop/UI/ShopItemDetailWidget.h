@@ -100,11 +100,15 @@ private:
 	UPROPERTY()
 	TObjectPtr<UCustomizationSlotDataAsset> SlotDataAsset = nullptr;
 
-	// Currently hovered item index in grid (for preview)
+	// Currently hovered item index in grid (for preview) - this is the actual slot item index
 	int32 HoveredItemIndex = INDEX_NONE;
 
 	// Current grid item widgets (for cleanup)
 	TArray<TObjectPtr<UCustomizationGridItemWidget>> GridItemWidgets;
+
+	// Map from grid display index to actual slot item index
+	// Used when ItemIndices array is specified to map displayed items to actual slot indices
+	TArray<int32> GridIndexToSlotIndexMap;
 
 	// Handle for async mesh loading (to cancel previous request if needed)
 	TSharedPtr<struct FStreamableHandle> MeshLoadHandle;

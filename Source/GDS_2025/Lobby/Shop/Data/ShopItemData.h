@@ -38,6 +38,11 @@ struct FShopItemData
 	// Slot index in the CustomizationSlotDataAsset (which slot's items are available as variations)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Shop|Item", meta=(ClampMin="0"))
 	int32 SlotIndex = 0;
+
+	// Specific item indices to show from the slot (if empty, shows all items from the slot)
+	// If this array is populated, only items at these indices will be displayed
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Shop|Item", meta=(ClampMin="0"))
+	TArray<int32> ItemIndices;
 };
 
 /**

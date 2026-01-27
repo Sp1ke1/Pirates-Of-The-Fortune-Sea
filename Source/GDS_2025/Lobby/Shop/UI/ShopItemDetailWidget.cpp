@@ -161,21 +161,61 @@ void UShopItemDetailWidget::RefreshGrid()
 		GridPanel->ClearChildren();
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[ShopItemDetailWidget] RefreshGrid: Creating %d items with GridColumns=%d"), SlotData.Items.Num(), GridColumns);
+	// Determine which items to display
+	TArray<int32> ItemsToDisplay;
+	GridIndexToSlotIndexMap.Empty();
+
+	if (ItemData.ItemIndices.Num() > 0)
+	{
+		// Use specific indices if provided
+		ItemsToDisplay = ItemData.ItemIndices;
+		GridIndexToSlotIndexMap = ItemData.ItemIndices;
+		UE_LOG(LogTemp, Log, TEXT("[ShopItemDetailWidget] RefreshGrid: Using specific item indices, displaying %d items"), ItemsToDisplay.Num());
+	}
+	else
+	{
+		// Use all items from slot
+		for (int32 i = 0; i < SlotData.Items.Num(); ++i)
+		{
+			ItemsToDisplay.Add(i);
+			GridIndexToSlotIndexMap.Add(i);
+		}
+		UE_LOG(LogTemp, Log, TEXT("[ShopItemDetailWidget] RefreshGrid: Using all items from slot, displaying %d items"), ItemsToDisplay.Num());
+	}
+
+	if (ItemsToDisplay.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ShopItemDetailWidget] RefreshGrid: No items to display"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[ShopItemDetailWidget] RefreshGrid: Creating %d items with GridColumns=%d"), ItemsToDisplay.Num(), GridColumns);
 
 	// Create grid items (variations that player will receive)
-	for (int32 ItemIndex = 0; ItemIndex < SlotData.Items.Num(); ++ItemIndex)
+	for (int32 DisplayIndex = 0; DisplayIndex < ItemsToDisplay.Num(); ++DisplayIndex)
 	{
-		UCustomizationGridItemWidget* ItemWidget = CreateWidget<UCustomizationGridItemWidget>(this, GridItemWidgetClass);
-		if (!ItemWidget)
+		const int32 SlotItemIndex = ItemsToDisplay[DisplayIndex];
+
+		// Validate slot item index
+		if (!SlotData.Items.IsValidIndex(SlotItemIndex))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("[ShopItemDetailWidget] RefreshGrid: Failed to create widget for item %d"), ItemIndex);
+			UE_LOG(LogTemp, Warning, TEXT("[ShopItemDetailWidget] RefreshGrid: Invalid slot item index %d (slot has %d items)"), SlotItemIndex, SlotData.Items.Num());
 			continue;
 		}
 
-		ItemWidget->InitializeItem(SlotData.Items[ItemIndex], ItemIndex);
+		UCustomizationGridItemWidget* ItemWidget = CreateWidget<UCustomizationGridItemWidget>(this, GridItemWidgetClass);
+		if (!ItemWidget)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[ShopItemDetailWidget] RefreshGrid: Failed to create widget for display index %d (slot index %d)"), DisplayIndex, SlotItemIndex);
+			continue;
+		}
+
+		// Initialize with the actual slot item (use slot index for the item data, but display index for widget)
+		ItemWidget->InitializeItem(SlotData.Items[SlotItemIndex], SlotItemIndex);
 
 		// Bind events (only hover/unhover, no click needed for shop preview)
+		// Note: We need to pass the actual slot index, not display index
+		// We'll use a lambda or store the mapping
 		ItemWidget->OnItemHovered.AddDynamic(this, &UShopItemDetailWidget::OnGridItemHovered);
 		ItemWidget->OnItemUnhovered.AddDynamic(this, &UShopItemDetailWidget::OnGridItemUnhovered);
 
@@ -185,9 +225,9 @@ void UShopItemDetailWidget::RefreshGrid()
 		if (UUniformGridPanel* GridPanel = Cast<UUniformGridPanel>(GridItemsContainer))
 		{
 			// For UniformGridPanel, use AddChildToUniformGrid with row/column
-			const int32 Row = ItemIndex / GridColumns;
-			const int32 Column = ItemIndex % GridColumns;
-			UE_LOG(LogTemp, VeryVerbose, TEXT("[ShopItemDetailWidget] RefreshGrid: Adding item %d at Row=%d, Column=%d"), ItemIndex, Row, Column);
+			const int32 Row = DisplayIndex / GridColumns;
+			const int32 Column = DisplayIndex % GridColumns;
+			UE_LOG(LogTemp, VeryVerbose, TEXT("[ShopItemDetailWidget] RefreshGrid: Adding item (display=%d, slot=%d) at Row=%d, Column=%d"), DisplayIndex, SlotItemIndex, Row, Column);
 			GridPanel->AddChildToUniformGrid(ItemWidget, Column, Row);
 		}
 		else
@@ -211,17 +251,37 @@ void UShopItemDetailWidget::UpdatePreview()
 		return;
 	}
 
-	// If hovering an item, show that. Otherwise show first item by default.
-	int32 PreviewItemIndex = 0; // Default to first item
+	// If hovering an item, show that. Otherwise show first displayed item by default.
+	int32 PreviewItemIndex = INDEX_NONE;
 	const int32 SlotIndex = ItemData.SlotIndex;
 
 	if (HoveredItemIndex != INDEX_NONE)
 	{
 		PreviewItemIndex = HoveredItemIndex;
 	}
+	else
+	{
+		// Default to first displayed item
+		if (GridIndexToSlotIndexMap.Num() > 0)
+		{
+			PreviewItemIndex = GridIndexToSlotIndexMap[0];
+		}
+		else if (ItemData.ItemIndices.Num() > 0)
+		{
+			PreviewItemIndex = ItemData.ItemIndices[0];
+		}
+		else
+		{
+			// Fallback to first item in slot
+			PreviewItemIndex = 0;
+		}
+	}
 
-	// Apply preview for the slot
-	ApplyPreviewForSlot(SlotIndex, PreviewItemIndex);
+	if (PreviewItemIndex != INDEX_NONE)
+	{
+		// Apply preview for the slot
+		ApplyPreviewForSlot(SlotIndex, PreviewItemIndex);
+	}
 }
 
 void UShopItemDetailWidget::OnGridItemHovered(int32 ItemIndex)
@@ -284,6 +344,7 @@ void UShopItemDetailWidget::ClearGrid()
 		}
 	}
 	GridItemWidgets.Empty();
+	GridIndexToSlotIndexMap.Empty();
 	HoveredItemIndex = INDEX_NONE;
 }
 

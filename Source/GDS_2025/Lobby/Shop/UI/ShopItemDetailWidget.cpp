@@ -147,12 +147,29 @@ void UShopItemDetailWidget::RefreshGrid()
 		return;
 	}
 
+	// Validate GridColumns
+	if (GridColumns <= 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[ShopItemDetailWidget] GridColumns is %d, must be > 0. Using default value 4."), GridColumns);
+		GridColumns = 4;
+	}
+
+	// Check if it's UniformGridPanel and clear it properly
+	if (UUniformGridPanel* GridPanel = Cast<UUniformGridPanel>(GridItemsContainer))
+	{
+		// Clear all children from UniformGridPanel
+		GridPanel->ClearChildren();
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[ShopItemDetailWidget] RefreshGrid: Creating %d items with GridColumns=%d"), SlotData.Items.Num(), GridColumns);
+
 	// Create grid items (variations that player will receive)
 	for (int32 ItemIndex = 0; ItemIndex < SlotData.Items.Num(); ++ItemIndex)
 	{
 		UCustomizationGridItemWidget* ItemWidget = CreateWidget<UCustomizationGridItemWidget>(this, GridItemWidgetClass);
 		if (!ItemWidget)
 		{
+			UE_LOG(LogTemp, Warning, TEXT("[ShopItemDetailWidget] RefreshGrid: Failed to create widget for item %d"), ItemIndex);
 			continue;
 		}
 
@@ -170,6 +187,7 @@ void UShopItemDetailWidget::RefreshGrid()
 			// For UniformGridPanel, use AddChildToUniformGrid with row/column
 			const int32 Row = ItemIndex / GridColumns;
 			const int32 Column = ItemIndex % GridColumns;
+			UE_LOG(LogTemp, VeryVerbose, TEXT("[ShopItemDetailWidget] RefreshGrid: Adding item %d at Row=%d, Column=%d"), ItemIndex, Row, Column);
 			GridPanel->AddChildToUniformGrid(ItemWidget, Column, Row);
 		}
 		else
@@ -180,6 +198,8 @@ void UShopItemDetailWidget::RefreshGrid()
 
 		GridItemWidgets.Add(ItemWidget);
 	}
+
+	UE_LOG(LogTemp, Log, TEXT("[ShopItemDetailWidget] RefreshGrid: Created %d grid items"), GridItemWidgets.Num());
 
 	UpdatePreview();
 }

@@ -16,6 +16,13 @@ void UShopMainWidget::NativeDestruct()
 {
 	CloseItemDetail();
 	ClearPacks();
+
+	// Restore preview actor visibility when this widget is destroyed
+	if (PreviewActor)
+	{
+		PreviewActor->SetActorHiddenInGame(false);
+	}
+
 	ShopDataAsset = nullptr;
 	PreviewActor = nullptr;
 	Super::NativeDestruct();
@@ -25,12 +32,25 @@ void UShopMainWidget::InitializeWidget(UShopPackDataAsset* InShopDataAsset, ACus
 {
 	ShopDataAsset = InShopDataAsset;
 	PreviewActor = InPreviewActor;
+
+	// When opening the main shop screen, preview actor should be hidden
+	if (PreviewActor)
+	{
+		PreviewActor->SetActorHiddenInGame(true);
+	}
+
 	RefreshPacks();
 }
 
 void UShopMainWidget::ShowWidget()
 {
 	SetVisibility(ESlateVisibility::Visible);
+
+	// On main shop screen, hide preview actor
+	if (PreviewActor)
+	{
+		PreviewActor->SetActorHiddenInGame(true);
+	}
 }
 
 void UShopMainWidget::HideWidget()
@@ -100,8 +120,15 @@ void UShopMainWidget::OpenItemDetail(int32 PackIndex, int32 ItemIndex)
 		return;
 	}
 
+	// When entering item detail, show preview actor
+
 	// Close existing detail widget if any
 	CloseItemDetail();
+
+	if (PreviewActor)
+	{
+		PreviewActor->SetActorHiddenInGame(false);
+	}
 
 	// Create new detail widget
 	CurrentDetailWidget = CreateWidget<UShopItemDetailWidget>(this, ItemDetailWidgetClass);
@@ -134,6 +161,12 @@ void UShopMainWidget::CloseItemDetail()
 	{
 		CurrentDetailWidget->RemoveFromParent();
 		CurrentDetailWidget = nullptr;
+	}
+
+	// When closing detail and returning to main shop, hide preview actor again
+	if (PreviewActor)
+	{
+		PreviewActor->SetActorHiddenInGame(true);
 	}
 
 	// Show main widget

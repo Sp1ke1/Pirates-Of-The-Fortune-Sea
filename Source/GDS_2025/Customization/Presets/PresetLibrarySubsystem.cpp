@@ -1,0 +1,264 @@
+#include "GDS_2025/Customization/Presets/PresetLibrarySubsystem.h"
+
+#include "GDS_2025/Customization/Presets/PresetPackDataAsset.h"
+#include "GDS_2025/Customization/Presets/PlayerPresetSaveGame.h"
+
+#include "Kismet/GameplayStatics.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/AssetManager.h"
+#include "Engine/StreamableManager.h"
+#include "UObject/SoftObjectPath.h"
+
+void UPresetLibrarySubsystem::Initialize(FSubsystemCollectionBase& Collection)
+{
+	Super::Initialize(Collection);
+
+	// Load (or create) user presets on startup
+	LoadUserPresets();
+
+	// Start simple async preload of all preset meshes so Apply is fast later.
+	PreloadAllPresetMeshes();
+}
+
+void UPresetLibrarySubsystem::SetDevPresetPacks(const TArray<UPresetPackDataAsset*>& InPacks)
+{
+	DevPacks = InPacks;
+}
+
+void UPresetLibrarySubsystem::EnsureSaveObject()
+{
+	if (SaveObject)
+	{
+		return;
+	}
+
+	if (UGameplayStatics::DoesSaveGameExist(SaveSlotName, SaveUserIndex))
+	{
+		USaveGame* Loaded = UGameplayStatics::LoadGameFromSlot(SaveSlotName, SaveUserIndex);
+		SaveObject = Cast<UPlayerPresetSaveGame>(Loaded);
+	}
+
+	if (!SaveObject)
+	{
+		SaveObject = Cast<UPlayerPresetSaveGame>(
+			UGameplayStatics::CreateSaveGameObject(UPlayerPresetSaveGame::StaticClass())
+		);
+	}
+}
+
+bool UPresetLibrarySubsystem::LoadUserPresets()
+{
+	EnsureSaveObject();
+	return SaveObject != nullptr;
+}
+
+bool UPresetLibrarySubsystem::SaveUserPresets()
+{
+	EnsureSaveObject();
+	if (!SaveObject)
+	{
+		return false;
+	}
+
+	return UGameplayStatics::SaveGameToSlot(SaveObject, SaveSlotName, SaveUserIndex);
+}
+
+void UPresetLibrarySubsystem::CollectDevPresets(TArray<FCharacterPresetRecord>& Out) const
+{
+	for (const UPresetPackDataAsset* Pack : DevPacks)
+	{
+		if (!Pack)
+		{
+			continue;
+		}
+
+		for (const FCharacterPresetRecord& R : Pack->Presets)
+		{
+			Out.Add(R);
+		}
+	}
+}
+
+TArray<FCharacterPresetRecord> UPresetLibrarySubsystem::GetAllPresets() const
+{
+	TArray<FCharacterPresetRecord> Result;
+	CollectDevPresets(Result);
+
+	if (SaveObject)
+	{
+		Result.Append(SaveObject->UserPresets);
+	}
+
+	return Result;
+}
+
+TArray<FGuid> UPresetLibrarySubsystem::GetAllPresetIds() const
+{
+	const TArray<FCharacterPresetRecord> All = GetAllPresets();
+
+	TArray<FGuid> Ids;
+	Ids.Reserve(All.Num());
+
+	for (const FCharacterPresetRecord& R : All)
+	{
+		Ids.Add(R.Id);
+	}
+
+	return Ids;
+}
+
+TArray<FCharacterPresetRecord> UPresetLibrarySubsystem::GetUserPresets() const
+{
+	TArray<FCharacterPresetRecord> Result;
+	
+	if (SaveObject)
+	{
+		Result = SaveObject->UserPresets;
+	}
+
+	return Result;
+}
+
+TArray<FGuid> UPresetLibrarySubsystem::GetUserPresetIds() const
+{
+	const TArray<FCharacterPresetRecord> UserPresets = GetUserPresets();
+
+	TArray<FGuid> Ids;
+	Ids.Reserve(UserPresets.Num());
+
+	for (const FCharacterPresetRecord& R : UserPresets)
+	{
+		Ids.Add(R.Id);
+	}
+
+	return Ids;
+}
+
+const FCharacterPresetRecord* UPresetLibrarySubsystem::FindPresetById(const FGuid& Id) const
+{
+	// Dev first
+	for (const UPresetPackDataAsset* Pack : DevPacks)
+	{
+		if (!Pack)
+		{
+			continue;
+		}
+
+		for (const FCharacterPresetRecord& R : Pack->Presets)
+		{
+			if (R.Id == Id)
+			{
+				return &R;
+			}
+		}
+	}
+
+	// User
+	if (SaveObject)
+	{
+		for (const FCharacterPresetRecord& R : SaveObject->UserPresets)
+		{
+			if (R.Id == Id)
+			{
+				return &R;
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+FGuid UPresetLibrarySubsystem::AddOrUpdateUserPreset(FCharacterPresetRecord Record)
+{
+	EnsureSaveObject();
+	if (!SaveObject)
+	{
+		return FGuid();
+	}
+
+	if (!Record.Id.IsValid())
+	{
+		Record.Id = FGuid::NewGuid();
+	}
+
+	// Update if exists
+	for (FCharacterPresetRecord& Existing : SaveObject->UserPresets)
+	{
+		if (Existing.Id == Record.Id)
+		{
+			Existing = Record;
+			SaveUserPresets();
+			return Record.Id;
+		}
+	}
+
+	// Add new
+	SaveObject->UserPresets.Add(Record);
+	SaveUserPresets();
+	return Record.Id;
+}
+
+bool UPresetLibrarySubsystem::DeleteUserPresetById(const FGuid& Id)
+{
+	EnsureSaveObject();
+	if (!SaveObject)
+	{
+		return false;
+	}
+
+	const int32 Removed = SaveObject->UserPresets.RemoveAll([&](const FCharacterPresetRecord& R)
+	{
+		return R.Id == Id;
+	});
+
+	if (Removed > 0)
+	{
+		SaveUserPresets();
+		return true;
+	}
+
+	return false;
+}
+
+bool UPresetLibrarySubsystem::ApplyPresetToMeshById(const FGuid& Id, USkeletalMeshComponent* MeshComp) const
+{
+	const FCharacterPresetRecord* Record = FindPresetById(Id);
+	if (!Record)
+	{
+		return false;
+	}
+
+	Record->ApplyToMeshComponent(MeshComp);
+	return true;
+}
+
+void UPresetLibrarySubsystem::PreloadAllPresetMeshes()
+{
+	TArray<FCharacterPresetRecord> All = GetAllPresets();
+
+	TArray<FSoftObjectPath> Paths;
+	Paths.Reserve(All.Num());
+
+	for (const FCharacterPresetRecord& R : All)
+	{
+		const FSoftObjectPath P = R.MainMesh.ToSoftObjectPath();
+		if (P.IsValid() && !Paths.Contains(P))
+		{
+			Paths.Add(P);
+		}
+	}
+
+	if (Paths.Num() == 0)
+	{
+		UE_LOG(LogTemp, Verbose, TEXT("[PresetLib] No preset meshes to preload."));
+		return;
+	}
+
+	FStreamableManager& Streamable = UAssetManager::GetStreamableManager();
+	PreloadHandle = Streamable.RequestAsyncLoad(Paths, FStreamableDelegate::CreateLambda([]() {
+		UE_LOG(LogTemp, Log, TEXT("[PresetLib] Preset mesh preload finished."));
+	}));
+
+	UE_LOG(LogTemp, Log, TEXT("[PresetLib] Started async preload of %d preset meshes."), Paths.Num());
+}
+

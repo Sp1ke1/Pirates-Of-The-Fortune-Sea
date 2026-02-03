@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GDS_2025/Lobby/Customization/Data/CustomizationSlotData.h"
 #include "CharacterPresetRecord.generated.h"
 
 class USkeletalMesh;
@@ -43,6 +44,24 @@ struct FPresetParam
 	FName NameValue;
 };
 
+/**
+ * Saved data for a single customization slot inside a preset.
+ * Содержит индекс слота и снапшот исходного FCustomizationSlotItem.
+ */
+USTRUCT(BlueprintType)
+struct FCharacterPresetSlot
+{
+	GENERATED_BODY()
+
+	// Index of customization slot in data asset
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Preset")
+	int32 SlotIndex = INDEX_NONE;
+
+	// Full item data (type + meshes/materials + цена и т.п.)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Preset")
+	FCustomizationSlotItem Item;
+};
+
 USTRUCT(BlueprintType)
 struct FCharacterPresetRecord
 {
@@ -59,6 +78,10 @@ struct FCharacterPresetRecord
 	// Main mesh for now. Soft ref so it's SaveGame-friendly and loadable.
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Preset")
 	TSoftObjectPtr<USkeletalMesh> MainMesh;
+
+	// Detailed per-slot data (type + meshes/materials)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Preset")
+	TArray<FCharacterPresetSlot> Slots;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Preset")
 	TArray<FPresetParam> Params;

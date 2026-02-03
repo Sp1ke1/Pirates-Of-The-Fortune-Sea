@@ -1,6 +1,6 @@
 #include "GDS_2025/Lobby/Components/CharacterPresetApplierComponent.h"
 #include "GDS_2025/Lobby/Presets/PresetLibrarySubsystem.h"
-#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Engine/GameInstance.h"
 
 UCharacterPresetApplierComponent::UCharacterPresetApplierComponent(const FObjectInitializer& ObjectInitializer)
@@ -17,7 +17,7 @@ void UCharacterPresetApplierComponent::BeginPlay()
 	// This is just a validation point
 }
 
-void UCharacterPresetApplierComponent::Initialize(USkeletalMeshComponent* InMainMeshComponent, USkeletalMeshComponent* InHatMeshComponent)
+void UCharacterPresetApplierComponent::Initialize(USkeletalMeshComponent* InMainMeshComponent, UStaticMeshComponent* InHatMeshComponent)
 {
 	MainMeshComponent = InMainMeshComponent;
 	HatMeshComponent = InHatMeshComponent;

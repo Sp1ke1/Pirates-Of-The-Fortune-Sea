@@ -31,17 +31,17 @@ public:
 	// Reference to the hat/helmet skeletal mesh component (optional)
 	// Set via Initialize() function, not in editor
 	UPROPERTY(BlueprintReadOnly, Category="Preset Applier")
-	TObjectPtr<USkeletalMeshComponent> HatMeshComponent = nullptr;
+	TObjectPtr<UStaticMeshComponent> HatMeshComponent = nullptr;
 
 	/**
 	 * Initialize the component with references to mesh components from the owner actor.
 	 * Call this function from the owner actor's BeginPlay to set up the component.
 	 * 
 	 * @param InMainMeshComponent The main character skeletal mesh component
-	 * @param InHatMeshComponent The hat/helmet skeletal mesh component (optional, can be nullptr)
+	 * @param InHatMeshComponent The hat/helmet mesh component (optional, can be nullptr)
 	 */
 	UFUNCTION(BlueprintCallable, Category="Preset Applier")
-	void Initialize(USkeletalMeshComponent* InMainMeshComponent, USkeletalMeshComponent* InHatMeshComponent = nullptr);
+	void Initialize(USkeletalMeshComponent* InMainMeshComponent, UStaticMeshComponent* InHatMeshComponent = nullptr);
 
 	/**
 	 * Apply a preset by ID. This will look up the preset and call ApplyPreset.

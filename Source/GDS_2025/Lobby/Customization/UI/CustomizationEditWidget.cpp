@@ -773,6 +773,9 @@ FCharacterPresetRecord UCustomizationEditWidget::BuildPresetRecord() const
 	// Format: Key = "Slot_<SlotIndex>", Value = ItemIndex (as IntValue)
 	if (SlotDataAsset)
 	{
+		// Clear slots array before filling
+		Record.Slots.Empty();
+
 		for (const auto& Pair : SelectedItemIndices)
 		{
 			FPresetParam Param;
@@ -780,6 +783,25 @@ FCharacterPresetRecord UCustomizationEditWidget::BuildPresetRecord() const
 			Param.Type = EPresetParamType::Int;
 			Param.IntValue = Pair.Value;
 			Record.Params.Add(Param);
+
+			// Also store full per-slot data (snapshot of FCustomizationSlotItem)
+			const int32 SlotIndex = Pair.Key;
+			const int32 ItemIndex = Pair.Value;
+
+			if (SlotDataAsset->Slots.IsValidIndex(SlotIndex))
+			{
+				const FCustomizationSlotData& SlotData = SlotDataAsset->Slots[SlotIndex];
+				if (SlotData.Items.IsValidIndex(ItemIndex))
+				{
+					const FCustomizationSlotItem& Item = SlotData.Items[ItemIndex];
+
+					FCharacterPresetSlot SlotRecord;
+					SlotRecord.SlotIndex = SlotIndex;
+					SlotRecord.Item = Item;
+
+					Record.Slots.Add(SlotRecord);
+				}
+			}
 		}
 
 		// Set MainMesh from first slot (main mesh slot)

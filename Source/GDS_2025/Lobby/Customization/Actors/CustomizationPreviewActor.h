@@ -19,6 +19,8 @@ class ACustomizationPreviewActor : public AActor
 public:
 	ACustomizationPreviewActor();
 
+	virtual void BeginPlay() override;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Customization|Components")
 	TObjectPtr<USceneComponent> Root = nullptr;
 

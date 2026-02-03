@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "GDS_2025/Lobby/Presets/CharacterPresetRecord.h"
+#include "GDS_2025/Lobby/Customization/Data/CustomizationSlotData.h"
 #include "CharacterPresetApplierComponent.generated.h"
 
 class USkeletalMeshComponent;
@@ -57,6 +58,15 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="Preset Applier")
 	void ApplyPreset(const FCharacterPresetRecord& Preset);
 	virtual void ApplyPreset_Implementation(const FCharacterPresetRecord& Preset);
+
+	/**
+	 * Apply a single customization item (for preview during editing).
+	 * This is a BlueprintNativeEvent - you can override ApplyItem in Blueprint (not _Implementation).
+	 * The default C++ implementation applies meshes/materials based on SlotType.
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category="Preset Applier")
+	void ApplyItem(const FCustomizationSlotItem& Item, int32 SlotIndex);
+	virtual void ApplyItem_Implementation(const FCustomizationSlotItem& Item, int32 SlotIndex);
 
 protected:
 	virtual void BeginPlay() override;

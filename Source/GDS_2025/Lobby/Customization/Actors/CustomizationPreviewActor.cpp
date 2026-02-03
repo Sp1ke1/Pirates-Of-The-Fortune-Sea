@@ -19,6 +19,11 @@ ACustomizationPreviewActor::ACustomizationPreviewActor()
 	PresetApplierComponent = CreateDefaultSubobject<UCharacterPresetApplierComponent>(TEXT("PresetApplierComponent"));
 }
 
+void ACustomizationPreviewActor::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
 void ACustomizationPreviewActor::ApplyPresetById(const FGuid& PresetId)
 {
 	if (PresetApplierComponent)

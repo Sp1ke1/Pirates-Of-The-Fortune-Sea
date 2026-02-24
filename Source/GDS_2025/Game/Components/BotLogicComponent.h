@@ -31,12 +31,24 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	/** Tag to search for items to pick up */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Logic | Team")
+	int32 TeamIndex;
+
+	/** Sets TeamIndex and auto-computes TeamZoneTag and EnemyBaseTag */
+	UFUNCTION(BlueprintCallable, Category = "AI Logic | Team")
+	void SetTeamIndex(int32 NewTeamIndex);
+
+	/** Tag of the pickup zone actor (auto-set from TeamIndex) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Logic | Team")
+	FName TeamZoneTag;
+
+	/** Tag of the enemy base (auto-set from TeamIndex) */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "AI Logic | Team")
+	FName EnemyBaseTag;
+
+	/** Tag to search for items to pick up */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Logic")
 	FName TargetItemTag;
-
-	/** Tag to search for base to drop items */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Logic")
-	FName TargetBaseTag;
 
 	/** Distance to interact with targets */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI Logic")
@@ -64,7 +76,10 @@ private:
 	void UpdateLogic(float DeltaTime);
 	AActor* FindNearestActorWithTag(FName Tag);
 	AActor* FindRandomActorWithTag(FName Tag);
-	void MoveToActor(AActor* Target);
+	AActor* FindNearestItemInZone();
+	bool IsActorInTeamZone(AActor* Actor) const;
+	bool MoveToActor(AActor* Target);
+	FVector GetActorPhysicalLocation(AActor* Target);
 	
 	// Helper to find interface
 	class IPickupInterface* GetPickupComponent() const;

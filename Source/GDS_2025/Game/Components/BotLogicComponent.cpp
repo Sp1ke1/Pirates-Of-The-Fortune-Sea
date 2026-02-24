@@ -14,11 +14,14 @@ UBotLogicComponent::UBotLogicComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 
+	TeamIndex = 0;
+	TeamZoneTag = "Zone_Team0";
+	EnemyBaseTag = "Base_Team1";
 	TargetItemTag = "Pickable";
-	TargetBaseTag = "EnemyBase";
 	InteractionRange = 150.0f;
 	CurrentState = EBotState::Idle;
 	WaitTimer = 0.0f;
+	bDebugDraw = false;
 }
 
 
@@ -27,17 +30,32 @@ void UBotLogicComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
+	// Apply team tags based on initial TeamIndex
+	SetTeamIndex(TeamIndex);
+
 	// Randomize start time slightly to avoid all bots starting exactly same frame
 	WaitTimer = FMath::RandRange(0.0f, 1.0f);
+}
+
+void UBotLogicComponent::SetTeamIndex(int32 NewTeamIndex)
+{
+	TeamIndex = NewTeamIndex;
+	TeamZoneTag = FName(*FString::Printf(TEXT("Zone_Team%d"), TeamIndex));
+	const int32 EnemyTeamIndex = TeamIndex == 1 ? 0 : 1;
+	EnemyBaseTag = FName(*FString::Printf(TEXT("Base_Team%d"), EnemyTeamIndex));
 }
 
 
 // Called every frame
 void UBotLogicComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+	if (!IsActive())
+	{
+		return;
+	}
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	UpdateLogic(DeltaTime);
+	UpdateLogic(DeltaTime);	
 }
 
 void UBotLogicComponent::UpdateLogic(float DeltaTime)
@@ -55,13 +73,20 @@ void UBotLogicComponent::UpdateLogic(float DeltaTime)
 	{
 	case EBotState::Idle:
 		{
-			// Look for item
-			AActor* FoundItem = FindNearestActorWithTag(TargetItemTag);
+			// Look for item inside this bot's zone
+			AActor* FoundItem = FindNearestItemInZone();
 			if (FoundItem)
 			{
 				CurrentTargetActor = FoundItem;
-				CurrentState = EBotState::MovingToItem;
-				MoveToActor(CurrentTargetActor);
+				if (MoveToActor(CurrentTargetActor))
+				{
+					CurrentState = EBotState::MovingToItem;
+				}
+				else
+				{
+					CurrentTargetActor = nullptr;
+					WaitTimer = 1.0f;
+				}
 			}
 			else
 			{
@@ -90,6 +115,32 @@ void UBotLogicComponent::UpdateLogic(float DeltaTime)
 			{
 				CurrentState = EBotState::Idle;
 			}
+			else
+			{
+				// Check that the item is still inside our zone
+				if (!IsActorInTeamZone(CurrentTargetActor))
+				{
+					// Item left the zone -- abort and look for another item
+					CurrentTargetActor = nullptr;
+					if (APawn* OwnerPawn = Cast<APawn>(GetOwner()))
+					{
+						if (AAIController* AICon = Cast<AAIController>(OwnerPawn->GetController()))
+						{
+							AICon->StopMovement();
+						}
+					}
+					CurrentState = EBotState::Idle;
+				}
+				else
+				{
+					if (!MoveToActor(CurrentTargetActor))
+					{
+						CurrentState = EBotState::Idle;
+						CurrentTargetActor = nullptr;
+						WaitTimer = 1.0f;
+					}
+				}
+			}
 		}
 		break;
 
@@ -102,13 +153,20 @@ void UBotLogicComponent::UpdateLogic(float DeltaTime)
 				return;
 			}
 
-			// Look for base
-			AActor* FoundBase = FindRandomActorWithTag(TargetBaseTag);
+			// Look for enemy base
+			AActor* FoundBase = FindRandomActorWithTag(EnemyBaseTag);
 			if (FoundBase)
 			{
 				CurrentTargetActor = FoundBase;
-				CurrentState = EBotState::MovingToBase;
-				MoveToActor(CurrentTargetActor);
+				if (MoveToActor(CurrentTargetActor))
+				{
+					CurrentState = EBotState::MovingToBase;
+				}
+				else
+				{
+					CurrentTargetActor = nullptr;
+					WaitTimer = 1.0f;
+				}
 			}
 			else
 			{
@@ -160,7 +218,7 @@ AActor* UBotLogicComponent::FindNearestActorWithTag(FName Tag)
 	{
 		if (Actor && !Actor->IsAttachedTo(GetOwner())) // Don't find what we already hold (if tags persist)
 		{
-			float DistSq = FVector::DistSquared(MyLoc, Actor->GetActorLocation());
+			float DistSq = FVector::DistSquared(MyLoc, GetActorPhysicalLocation(Actor));
 			if (DistSq < MinDistSq)
 			{
 				MinDistSq = DistSq;
@@ -184,17 +242,79 @@ AActor* UBotLogicComponent::FindRandomActorWithTag(FName Tag)
 	return nullptr;
 }
 
-void UBotLogicComponent::MoveToActor(AActor* Target)
+bool UBotLogicComponent::IsActorInTeamZone(AActor* Actor) const
 {
-	if (!Target) return;
+	if (!Actor) return false;
+
+	TArray<AActor*> ZoneActors;
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), TeamZoneTag, ZoneActors);
+	if (ZoneActors.Num() == 0) return true; // No zone defined - assume valid
+
+	TArray<AActor*> OverlappingActors;
+	ZoneActors[0]->GetOverlappingActors(OverlappingActors);
+	return OverlappingActors.Contains(Actor);
+}
+
+AActor* UBotLogicComponent::FindNearestItemInZone()
+{
+	// Find the zone actor with our team's zone tag
+	AActor* ZoneActor = nullptr;
+	{
+		TArray<AActor*> ZoneActors;
+		UGameplayStatics::GetAllActorsWithTag(GetWorld(), TeamZoneTag, ZoneActors);
+		if (ZoneActors.Num() > 0)
+		{
+			ZoneActor = ZoneActors[0]; // Expect one zone per team
+		}
+	}
+
+	if (!ZoneActor)
+	{
+		// No zone found - fall back to global nearest item
+		UE_LOG(LogTemp, Warning, TEXT("BotLogicComponent: No zone actor found with tag '%s', falling back to global search"), *TeamZoneTag.ToString());
+		return FindNearestActorWithTag(TargetItemTag);
+	}
+
+	// Collect all items and filter by whether they overlap the zone
+	TArray<AActor*> AllItems;
+	UGameplayStatics::GetAllActorsWithTag(GetWorld(), TargetItemTag, AllItems);
+
+	AActor* Nearest = nullptr;
+	float MinDistSq = FLT_MAX;
+	FVector MyLoc = GetOwner()->GetActorLocation();
+
+	for (AActor* Item : AllItems)
+	{
+		if (!Item || Item->IsAttachedTo(GetOwner())) continue;
+
+		// Check if the item is overlapping / inside the zone volume
+		TArray<AActor*> OverlappingActors;
+		ZoneActor->GetOverlappingActors(OverlappingActors);
+
+		if (OverlappingActors.Contains(Item))
+		{
+			float DistSq = FVector::DistSquared(MyLoc, GetActorPhysicalLocation(Item));
+			if (DistSq < MinDistSq)
+			{
+				MinDistSq = DistSq;
+				Nearest = Item;
+			}
+		}
+	}
+	return Nearest;
+}
+
+bool UBotLogicComponent::MoveToActor(AActor* Target)
+{
+	if (!Target) return false;
 
 	APawn* OwnerPawn = Cast<APawn>(GetOwner());
-	if (!OwnerPawn) return;
+	if (!OwnerPawn) return false;
 
 	AAIController* AICon = Cast<AAIController>(OwnerPawn->GetController());
 	if (AICon)
 	{
-		FVector GoalLocation = Target->GetActorLocation();
+		FVector GoalLocation = GetActorPhysicalLocation(Target);
 		bool bProjected = false;
 
 		// Explicitly project to NavMesh to handle objects cutting the mesh
@@ -227,14 +347,30 @@ void UBotLogicComponent::MoveToActor(AActor* Target)
 			}
 		}
 
-		// Use MoveToLocation instead of MoveToActor to ensure we go to the VALID point we found
+		// Use MoveToLocation to ensure we go to the valid NavMesh point
 		FAIMoveRequest MoveReq(GoalLocation);
 		MoveReq.SetUsePathfinding(true);
-		MoveReq.SetAcceptanceRadius(50.0f); // We are already targeting the edge, so we want to get quite close to it
+		MoveReq.SetAcceptanceRadius(50.0f);
 		MoveReq.SetAllowPartialPath(true);
-		
-		AICon->MoveTo(MoveReq);
+		MoveReq.SetGoalLocation(GoalLocation);
+
+		FPathFollowingRequestResult Result = AICon->MoveTo(MoveReq);
+		return Result.Code != EPathFollowingRequestResult::Failed;
 	}
+	return false;
+}
+
+FVector UBotLogicComponent::GetActorPhysicalLocation(AActor* Target)
+{
+	if (!Target)
+	{
+		return FVector();
+	}
+	if (UStaticMeshComponent* StaticMesh = Target->GetComponentByClass<UStaticMeshComponent>())
+	{
+		return StaticMesh->GetComponentLocation();
+	}
+	return Target->GetActorLocation();
 }
 
 IPickupInterface* UBotLogicComponent::GetPickupComponent() const
@@ -263,6 +399,6 @@ bool UBotLogicComponent::IsTargetReached(AActor* Target)
 {
 	if (!Target) return false;
 	
-	float Dist = FVector::Dist(GetOwner()->GetActorLocation(), Target->GetActorLocation());
+	float Dist = FVector::Dist(GetOwner()->GetActorLocation(), GetActorPhysicalLocation(Target));
 	return Dist <= InteractionRange;
 }

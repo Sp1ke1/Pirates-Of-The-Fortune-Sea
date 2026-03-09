@@ -42,6 +42,21 @@ void UCustomizationGridItemWidget::InitializeItem(const FCustomizationSlotItem& 
 		ItemNameText->SetText(Item.DisplayName);
 	}
 
+	if (ItemImage && !Item.ItemIcon.IsNull())
+	{
+		// Load the texture synchronously for now (can be optimized to async loading later)
+		if (UTexture2D* LoadedTexture = Item.ItemIcon.LoadSynchronous())
+		{
+			ItemImage->SetBrushFromTexture(LoadedTexture);
+			ItemImage->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		}
+	}
+	else if (ItemImage)
+	{
+		// Hide image if no texture is provided
+		ItemImage->SetVisibility(ESlateVisibility::Collapsed);
+	}
+
 	UpdateVisualState();
 }
 

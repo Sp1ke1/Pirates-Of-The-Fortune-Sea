@@ -14,8 +14,9 @@ enum class ECustomizationSlotType : uint8
 {
 	MainMesh,
 	Hat,
-	Accessory,
+	Glasses,
 	Earring,
+	Pipe,
 	Material
 };
 
@@ -44,6 +45,10 @@ struct FCustomizationSlotItem
 	// Material for this item (used for "Material" slot)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Customization", meta=(AllowedClasses="Material,MaterialInstance"))
 	TSoftObjectPtr<UMaterialInterface> Material;
+
+	// Icon/Image for this item to display in the UI grid
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Customization|UI", meta=(AllowedClasses="Texture2D"))
+	TSoftObjectPtr<class UTexture2D> ItemIcon;
 
 	// Is this item paid/premium (requires purchase)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Customization|Purchase")

@@ -29,10 +29,22 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category="Preset Applier")
 	TObjectPtr<USkeletalMeshComponent> MainMeshComponent = nullptr;
 
-	// Reference to the hat/helmet skeletal mesh component (optional)
+	// Reference to the hat/helmet mesh component (optional)
 	// Set via Initialize() function, not in editor
 	UPROPERTY(BlueprintReadOnly, Category="Preset Applier")
 	TObjectPtr<UStaticMeshComponent> HatMeshComponent = nullptr;
+
+	// Reference to the earring static mesh component (optional)
+	UPROPERTY(BlueprintReadOnly, Category="Preset Applier")
+	TObjectPtr<UStaticMeshComponent> EarringMeshComponent = nullptr;
+
+	// Reference to the pipe static mesh component (optional)
+	UPROPERTY(BlueprintReadOnly, Category="Preset Applier")
+	TObjectPtr<UStaticMeshComponent> PipeMeshComponent = nullptr;
+
+	// Reference to the glasses static mesh component (optional)
+	UPROPERTY(BlueprintReadOnly, Category="Preset Applier")
+	TObjectPtr<UStaticMeshComponent> GlassesMeshComponent = nullptr;
 
 	/**
 	 * Initialize the component with references to mesh components from the owner actor.
@@ -40,9 +52,12 @@ public:
 	 * 
 	 * @param InMainMeshComponent The main character skeletal mesh component
 	 * @param InHatMeshComponent The hat/helmet mesh component (optional, can be nullptr)
+	 * @param InEarringMeshComponent The earring mesh component (optional, can be nullptr)
+	 * @param InPipeMeshComponent The pipe mesh component (optional, can be nullptr)
+	 * @param InGlassesMeshComponent The glasses mesh component (optional, can be nullptr)
 	 */
 	UFUNCTION(BlueprintCallable, Category="Preset Applier")
-	void Initialize(USkeletalMeshComponent* InMainMeshComponent, UStaticMeshComponent* InHatMeshComponent = nullptr);
+	void Initialize(USkeletalMeshComponent* InMainMeshComponent, UStaticMeshComponent* InHatMeshComponent = nullptr, UStaticMeshComponent* InEarringMeshComponent = nullptr, UStaticMeshComponent* InPipeMeshComponent = nullptr, UStaticMeshComponent* InGlassesMeshComponent = nullptr);
 
 	/**
 	 * Apply a preset by ID. This will look up the preset and call ApplyPreset.

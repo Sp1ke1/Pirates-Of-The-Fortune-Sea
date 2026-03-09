@@ -25,10 +25,13 @@ void UCharacterPresetApplierComponent::BeginPlay()
 	// This is just a validation point
 }
 
-void UCharacterPresetApplierComponent::Initialize(USkeletalMeshComponent* InMainMeshComponent, UStaticMeshComponent* InHatMeshComponent)
+void UCharacterPresetApplierComponent::Initialize(USkeletalMeshComponent* InMainMeshComponent, UStaticMeshComponent* InHatMeshComponent, UStaticMeshComponent* InEarringMeshComponent, UStaticMeshComponent* InPipeMeshComponent, UStaticMeshComponent* InGlassesMeshComponent)
 {
 	MainMeshComponent = InMainMeshComponent;
 	HatMeshComponent = InHatMeshComponent;
+	EarringMeshComponent = InEarringMeshComponent;
+	PipeMeshComponent = InPipeMeshComponent;
+	GlassesMeshComponent = InGlassesMeshComponent;
 }
 
 bool UCharacterPresetApplierComponent::ApplyPresetById(const FGuid& PresetId)
@@ -172,7 +175,6 @@ void UCharacterPresetApplierComponent::ApplyItem_Implementation(const FCustomiza
 		break;
 
 	case ECustomizationSlotType::Hat:
-	case ECustomizationSlotType::Accessory:
 	case ECustomizationSlotType::Earring:
 		// Default C++ implementation doesn't handle these
 		// Override in Blueprint to handle HatMeshComponent, StaticMesh, etc.

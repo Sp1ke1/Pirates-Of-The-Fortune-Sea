@@ -1,5 +1,6 @@
 #include "GDS_2025/Customization/Components/CharacterPresetApplierComponent.h"
 #include "GDS_2025/Customization/Presets/PresetLibrarySubsystem.h"
+#include "GDS_2025/Lobby/Framework/LobbyGameInstance.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/GameInstance.h"
@@ -57,6 +58,31 @@ bool UCharacterPresetApplierComponent::ApplyPresetById(const FGuid& PresetId)
 
 	ApplyPreset(*Preset);
 	return true;
+}
+
+bool UCharacterPresetApplierComponent::ApplyAppearance(int32 SlotIndex)
+{
+	UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
+	if (!GI)
+	{
+		return false;
+	}
+
+	ULobbyGameInstance* LobbyGI = Cast<ULobbyGameInstance>(GI);
+	if (!LobbyGI)
+	{
+		return false;
+	}
+
+	// Проверка валидности индекса слота
+	const TArray<FLobbySlotData>& Slots = LobbyGI->GetAllSlots();
+	if (!Slots.IsValidIndex(SlotIndex))
+	{
+		return false;
+	}
+
+	const FLobbySlotData& SlotData = LobbyGI->GetSlotData(SlotIndex);
+	return ApplyPresetById(SlotData.SelectedPresetId);
 }
 
 void UCharacterPresetApplierComponent::ApplyPreset_Implementation(const FCharacterPresetRecord& Preset)

@@ -51,6 +51,16 @@ public:
 	bool ApplyPresetById(const FGuid& PresetId);
 
 	/**
+	 * Apply appearance from lobby slot by index.
+	 * Gets the preset ID from the specified slot in ULobbyGameInstance and applies it.
+	 * 
+	 * @param SlotIndex Index of the slot in the lobby game instance's Slots array
+	 * @return true if the preset was successfully applied, false otherwise
+	 */
+	UFUNCTION(BlueprintCallable, Category="Preset Applier")
+	bool ApplyAppearance(int32 SlotIndex);
+
+	/**
 	 * Apply a preset record. 
 	 * This is a BlueprintNativeEvent - you can override ApplyPreset in Blueprint (not _Implementation).
 	 * The default C++ implementation applies the main mesh to MainMeshComponent.

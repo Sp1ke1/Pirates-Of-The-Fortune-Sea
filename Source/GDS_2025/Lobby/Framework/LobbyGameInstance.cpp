@@ -68,7 +68,7 @@ void ULobbyGameInstance::InitializeDefaultSlots()
 	for (int32 i = 0; i < NumLobbySlots; ++i)
 	{
 		Slots[i].SlotIndex = i;
-		Slots[i].Control = FLobbyControlAssignment::None();
+		Slots[i].Control = FLobbyControlAssignment::AI();
 		Slots[i].PlayerColor = Colors[i];
 		Slots[i].bReady = false;
 		Slots[i].SelectedPresetId = FGuid(); // will be fixed by EnsureValidPresetForSlot
@@ -123,7 +123,7 @@ bool ULobbyGameInstance::SetSlotControl(const int32 SlotIndex, const FLobbyContr
 	const bool bReservedOk = DeviceRegistry->ReserveDeviceForSlot(NewControl.DeviceId, SlotIndex);
 	if (!bReservedOk)
 	{
-		Slots[SlotIndex].Control = FLobbyControlAssignment::None();
+		Slots[SlotIndex].Control = FLobbyControlAssignment::AI();
 		BroadcastSlotChanged(SlotIndex);
 		return false;
 	}
@@ -161,7 +161,6 @@ void ULobbyGameInstance::CycleSlotControl(const int32 SlotIndex, const int32 Del
 	TArray<FLobbyControlAssignment> Options;
 	Options.Add(FLobbyControlAssignment::None());
 	Options.Add(FLobbyControlAssignment::AI());
-	Options.Add(FLobbyControlAssignment::Matchmaking());
 
 	const FLobbyControlAssignment Current = Slots[SlotIndex].Control;
 
@@ -192,7 +191,7 @@ bool ULobbyGameInstance::AssignPhysicalDeviceToSlot(const int32 SlotIndex, const
 	const int32 ExistingSlot = DeviceRegistry->GetReservedSlotForDevice(DeviceId);
 	if (ExistingSlot != INDEX_NONE && ExistingSlot != SlotIndex)
 	{
-		SetSlotControl(ExistingSlot, FLobbyControlAssignment::Matchmaking());
+		SetSlotControl(ExistingSlot, FLobbyControlAssignment::None());
 	}
 
 	// Apply new physical assignment

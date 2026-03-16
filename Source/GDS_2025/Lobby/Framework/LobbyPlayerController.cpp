@@ -323,6 +323,7 @@ void ALobbyPlayerController::OnConfirm(const FInputActionValue& Value)
 void ALobbyPlayerController::OnCancel(const FInputActionValue& Value)
 {
 	UE_LOG(LogTemp, Log, TEXT("[LobbyPC] Cancel pressed"));
+	BP_OnCancel(Value);
 }
 
 void ALobbyPlayerController::StartHoldStartGame(const FInputActionValue& Value)

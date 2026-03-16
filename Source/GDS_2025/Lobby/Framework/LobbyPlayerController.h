@@ -84,6 +84,9 @@ protected:
 	void OnConfirm(const FInputActionValue& Value);
 	void OnCancel(const FInputActionValue& Value);
 
+	UFUNCTION(BlueprintImplementableEvent, Category="Lobby|Input", meta=(DisplayName="On Cancel"))
+	void BP_OnCancel(FInputActionValue Value);
+
 	void OnSkinPrev(const FInputActionValue& Value);
 	void OnSkinNext(const FInputActionValue& Value);
 

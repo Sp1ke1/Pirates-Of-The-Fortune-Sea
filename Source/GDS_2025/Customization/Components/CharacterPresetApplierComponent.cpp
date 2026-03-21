@@ -88,6 +88,58 @@ bool UCharacterPresetApplierComponent::ApplyAppearance(int32 SlotIndex)
 	return ApplyPresetById(SlotData.SelectedPresetId);
 }
 
+bool UCharacterPresetApplierComponent::ApplyRandomPreset()
+{
+	UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
+	if (!GI)
+	{
+		return false;
+	}
+
+	UPresetLibrarySubsystem* Lib = GI->GetSubsystem<UPresetLibrarySubsystem>();
+	if (!Lib)
+	{
+		return false;
+	}
+
+	TArray<FGuid> AllIds = Lib->GetAllPresetIds();
+	if (AllIds.IsEmpty())
+	{
+		return false;
+	}
+
+	int32 RandomIndex = FMath::RandRange(0, AllIds.Num() - 1);
+	return ApplyPresetById(AllIds[RandomIndex]);
+}
+
+bool UCharacterPresetApplierComponent::ApplyFirstPredefinedPreset()
+{
+	UGameInstance* GI = GetWorld() ? GetWorld()->GetGameInstance() : nullptr;
+	if (!GI)
+	{
+		return false;
+	}
+
+	UPresetLibrarySubsystem* Lib = GI->GetSubsystem<UPresetLibrarySubsystem>();
+	if (!Lib)
+	{
+		return false;
+	}
+
+	TArray<FGuid> AllIds = Lib->GetAllPresetIds();
+	TArray<FGuid> UserIds = Lib->GetUserPresetIds();
+
+	for (const FGuid& Id : AllIds)
+	{
+		if (!UserIds.Contains(Id))
+		{
+			return ApplyPresetById(Id);
+		}
+	}
+
+	return false;
+}
+
 void UCharacterPresetApplierComponent::ApplyPreset_Implementation(const FCharacterPresetRecord& Preset)
 {
 	// Default implementation: apply main mesh to MainMeshComponent

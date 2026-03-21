@@ -20,8 +20,6 @@ void ACombatGameMode::AssignPiratesToLobbySlots(const TArray<APawn*>& MapPirates
 
 	const TArray<FLobbySlotData>& Slots = GameInstance->GetAllSlots();
 
-	int32 HumanPlayerCount = 0;
-
 	for (int32 i = 0; i < MapPirates.Num(); ++i)
 	{
 		APawn* PiratePawn = MapPirates[i];
@@ -35,26 +33,15 @@ void ACombatGameMode::AssignPiratesToLobbySlots(const TArray<APawn*>& MapPirates
 
 		const FLobbySlotData& Slot = Slots[i];
 
-		if (Slot.Control.Source == ELobbyControlSource::Keyboard ||
-			Slot.Control.Source == ELobbyControlSource::Gamepad)
+		if (Slot.Control.Source == ELobbyControlSource::Keyboard)
 		{
-			APlayerController* PC = nullptr;
-
-			if (HumanPlayerCount == 0)
-			{
-				PC = UGameplayStatics::GetPlayerController(World, 0);
-			}
-			else
-			{
-				PC = UGameplayStatics::CreatePlayer(World, -1, true);
-			}
-
-			if (PC)
-			{
-				PC->Possess(PiratePawn);
-			}
-
-			HumanPlayerCount++;
+			APlayerController* PC = UGameplayStatics::GetPlayerController(World, 0);
+			if (PC) PC->Possess(PiratePawn);
+		}
+		else if (Slot.Control.Source == ELobbyControlSource::Gamepad)
+		{
+			APlayerController* PC = UGameplayStatics::CreatePlayer(World, -1, true);
+			if (PC) PC->Possess(PiratePawn);
 		}
 		else if (Slot.Control.Source == ELobbyControlSource::AI)
 		{

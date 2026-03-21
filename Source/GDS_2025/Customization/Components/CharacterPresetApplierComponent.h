@@ -76,6 +76,22 @@ public:
 	bool ApplyAppearance(int32 SlotIndex);
 
 	/**
+	 * Apply a random appearance from all available presets (pre-created and user-created).
+	 * 
+	 * @return true if a random preset was successfully applied, false otherwise
+	 */
+	UFUNCTION(BlueprintCallable, Category="Preset Applier")
+	bool ApplyRandomPreset();
+
+	/**
+	 * Apply the first predefined preset (excludes user-created presets).
+	 * 
+	 * @return true if the preset was successfully applied, false otherwise
+	 */
+	UFUNCTION(BlueprintCallable, Category="Preset Applier")
+	bool ApplyFirstPredefinedPreset();
+
+	/**
 	 * Apply a preset record. 
 	 * This is a BlueprintNativeEvent - you can override ApplyPreset in Blueprint (not _Implementation).
 	 * The default C++ implementation applies the main mesh to MainMeshComponent.
